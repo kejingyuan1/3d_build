@@ -240,6 +240,56 @@ node tools/asset_generator/fbx_to_glb.js <in.fbx> <out.glb>
 - `docs/architecture/asset-pipeline.md` — GLB 标准、生成器架构、验收清单
 - `docs/art/art-bible.md` — 卡通美术圣经（调色板/Toon/比例/命名）
 - `docs/art/asset-specs.md` — 资产规格规范（碰撞必填/CC0 流程/QA）
+- `docs/art/animal-rebuild-spec.md` — **成年动物重建规格**（8 只动物逐只规格 + GLB 规范 + 蒙皮/动画 + 命名 + 验收清单）
+- `ISSUES.md` — **已知问题 + 后续路线选项**（眼睛附体未根治、批量收尾待办、路线 A/B/C/D/E 决策）
+
+---
+
+## 七、成年动物重建进展（2026-08-06）
+
+**用户决策**：放弃写实（MAXDESIGN 鸡 4.16MB 太重 + 与卡通环境撕裂）→ **卡通 + 顶点蒙皮**方向。体积小 6-50 倍、风格与仓库建筑/植物统一、自带骨骼动画（idle/walk/eat）无撕裂。
+
+### 最新资产（`assets/animals/staging/`，5 只顶点蒙皮版 `_sk`）
+
+| 文件 | 体积 | 高度 | 说明 |
+|------|------|------|------|
+| `animal_chicken_brown_sk.glb` | 85KB | 0.5m | 鸡（5 材质 + 顶点色 + 眼睛） |
+| `animal_cow_brown_sk.glb` | 157KB | 1.5m | 牛（暖棕身/深褐腿 + 眼睛） |
+| `lifecycle_duck_adult_sk.glb` | 84KB | 0.35m | 鸭（黑顶/白身/黄脚/橙喙 + 眼睛 + 头顶黑毛簇） |
+| `lifecycle_goose_adult_sk.glb` | 75KB | 0.65m | 鹅（暖白/橙蹼 + 眼睛） |
+| `animal_sheep_sk.glb` | 121KB | 0.75m | 羊（暖白/棕褐脸腿 + 眼睛） |
+
+另有 `_b` 程序骨骼版（白鸡/棕牛/鹅/羊剪毛两态/猪）作对比兜底，`cc0_compress_test/` 为写实鸡压缩实验（废弃）。
+
+### ⚠️ 已知问题（详见 ISSUES.md）
+
+1. **眼睛/毛簇附体未根治**：head bone 与 head mesh 不重合（牛 z 差 21cm），眼睛/鸭头顶黑毛簇漂浮。已试 attach 到 head bone / root bone 两方案未彻底解决；兜底方案（眼睛作为 skinnedMesh 子 mesh 绑 skin 权重）待实施
+2. **正式路径未替换**：`assets/animals/*.glb` 与 `assets/lifecycle/lifecycle_duck_adult.glb` / `lifecycle_goose_adult.glb` 仍是旧程序化版本——批量收尾需**同名覆盖** staging 新资产
+3. **猪未完成**：poly_pig.glb（真骨骼 Idle+Jump）rebake bug 待修
+4. **荷斯坦牛未做**（棕牛 mesh 重涂黑白花即可）
+5. **manifest.json 碰撞体未更新**（spec §2.x capsule 尺寸）
+6. **仓库 Quaternius animated GLB 未在联网环境重下验证**（100 倍 node scale 问题可程序化修复）
+
+### 管线工具（`tools/`）
+
+- `build_skinned_animal.mjs` — **主管线**：静态 GLB → 合并子网格 → 对齐 → 启发式骨骼 → 反距离² 蒙皮权重 → 顶点色刷色 → 脚底自校正 → 加眼睛 → 加毛簇
+- `fix_eyes_root.mjs` — 眼睛/毛簇挂 root bone + 世界坐标
+- `verify_render_vertex.mjs` — **关键验证**：模拟 GPU 顶点位置（applyBoneTransform + matrixWorld）
+- 其余：`build_cc0_chicken/cow/goose/sheep.mjs`、`apply_rootjoint_trs.py`、`align_glb_py.py`、`align_cc0_glb.mjs`、`probe_parts.py`、`load_glb_check.mjs`、`gen_clips.mjs`、`finalize_cc0.py`、`decimate_glb.mjs`、`resize_textures.py`、`cleanup_glb.py`、`rebake_quaternius_animal.mjs` 等
+
+### Demo
+
+- `preview_cartoon_batch.html` — **主 demo**：6 格卡通对比 + 牛/鹅新旧切换 + 羊剪毛两态
+- `preview_chicken_cc0.html` — 写实鸡 demo（废弃路线）
+- `preview_chicken_anim.html` / `preview_chicken_b.html` / `preview_chicken_sample.html` — 历史 demo
+
+### 后续路线建议（用户拍板，详见 ISSUES.md §2）
+
+- **A · 死磕眼睛附体**（眼睛 skin 进 head bone，1-2 天）
+- **B · 接受瑕疵批量收尾**（修猪 → 荷斯坦牛 → 8 只覆盖 → manifest → preview.html，1-2 天）⭐ 推荐
+- **C · 回退写实**（MAXDESIGN + KTX2 压缩，2-3 天）
+- **D · 暂停动物做其他**（场景桥接等 spec P1）
+- **E · 沉淀工具为 skill**
 
 ---
 
@@ -247,3 +297,4 @@ node tools/asset_generator/fbx_to_glb.js <in.fbx> <out.glb>
 
 全部资产 **CC0**（公有领域）：程序化生成（本项目自产）、Kenney Modular Buildings、Quaternius 系列（建筑/动物/树）。
 逐项归属见 `assets/manifest.json` 的 `source` / `attribution` / `license` 字段。
+**新增外部资产归属**：`assets/_cc0_src/` 下 poly.pizza 卡通动物（CC-BY 各模型作者）、chicken_maxdesign_raw.glb（CC-BY MAXDESIGN-3D）——attribution 需在正式合入 manifest 时补全。
