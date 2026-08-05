@@ -7,7 +7,11 @@ assets/quaternius_animals5/
 assets/quaternius_farm_animals/
 assets/quaternius_trees/
 
-# 临时/测试文件
+# 临时/测试/调试文件（根目录与 tools/ 下临时调试脚本，不入库）
+_*.txt
+_*.mjs
+_*.py
+_*.log
 _test*.glb
 _tex_sheet.png
 _test.glb
@@ -18,9 +22,18 @@ _*_out.txt
 _lc_verify_out.txt
 _dbg.txt
 _srv_check.txt
+_srv.log
+
+# tools/ 下调试脚本（命名以 _ 开头或 _dbg / _check / _diag / _probe 等）
+tools/_*.mjs
+tools/_*.py
 
 # 验证截图（过程产物）
 verify_*.png
+
+# Node 依赖
+tools/node_modules/
+
 # 根目录遗留的旧版验证脚本（最终版在 tools/ 下）
 /verify_lifecycle.js
 
