@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>农场牧场 · 3D 资产预览</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#2F3E2E; color:#F5EFE0; font-family:system-ui,"Microsoft YaHei",sans-serif; overflow:hidden; }
+  #viewer { position:fixed; inset:0; }
+  #toolbar { position:fixed; top:0; left:0; right:0; height:52px; background:rgba(20,30,20,.85); display:flex; align-items:center; padding:0 16px; gap:10px; z-index:10; backdrop-filter:blur(6px); border-bottom:1px solid rgba(255,255,255,.1); }
+  #toolbar h1 { font-size:15px; font-weight:600; white-space:nowrap; margin-right:14px; }
+  #toolbar select { background:#3a4a3a; color:#F5EFE0; border:1px solid #5a7a5a; border-radius:6px; padding:6px 10px; font-size:13px; outline:none; cursor:pointer; }
+  #toolbar .info { font-size:12px; color:#A8BFA8; margin-left:auto; white-space:nowrap; }
+  #hint { position:fixed; bottom:14px; left:50%; transform:translateX(-50%); background:rgba(20,30,20,.8); padding:8px 18px; border-radius:20px; font-size:12px; color:#C8D8C8; z-index:10; }
+  #stats { position:fixed; right:14px; bottom:14px; background:rgba(20,30,20,.85); padding:8px 14px; border-radius:10px; font-size:12px; color:#8CBF8C; z-index:10; line-height:1.6; max-width:240px; }
+</style>
+</head>
+<body>
+<div id="toolbar">
+  <h1>🌾 农场牧场 · 3D 资产预览</h1>
+  <select id="category">
+    <option value="all">🌍 全部资产（已就位）</option>
+    <option value="animals">🐄 动物</option>
+    <option value="plants">🌱 植物</option>
+    <option value="fish">🐟 鱼类</option>
+    <option value="buildings">🏠 建筑</option>
+    <option value="furniture">🛋 家具</option>
+    <option value="props">🧰 道具/环境</option>
+  </select>
+  <span class="info" id="info">加载中...</span>
+</div>
+<div id="viewer"></div>
+<div id="hint">🖱 左键旋转 · 滚轮缩放 · 右键平移</div>
+<div id="stats" id="stats">正在加载...</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.170.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/" } }
+</script>
+<!-- 内嵌 manifest（避免 fetch 失败） -->
+<script id="manifest-data" type="application/json">
+{
+  "schemaVersion": 1,
+  "assets": [
+    {
+      "assetId": "plant_wheat_mature",
+      "path": "assets/plants/plant_wheat_mature.glb",
+      "category": "plant",
+      "priority": "P0",
+      "name": "小麦-成熟",
+      "designId": "PLA-001"
+    },
+    {
+      "assetId": "plant_carrot_mature",
+      "path": "assets/plants/plant_carrot_mature.glb",
+      "category": "plant",
+      "priority": "P0",
+      "name": "胡萝卜-成熟",
+      "designId": "PLA-002"
+    },
+    {
+      "assetId": "plant_tomato",
+      "path": "assets/plants/plant_tomato.glb",
+      "category": "plant",
+      "priority": "P1",
+      "name": "番茄",
+      "designId": "PLA-004"
+    },
+    {
+      "assetId": "plant_pumpkin",
+      "path": "assets/plants/plant_pumpkin.glb",
+      "category": "plant",
+      "priority": "P1",
+      "name": "南瓜",
+      "designId": "PLA-005"
+    },
+    {
+      "assetId": "plant_tree_oak",
+      "path": "assets/plants/plant_tree_oak.glb",
+      "category": "plant",
+      "priority": "P0",
+      "name": "基础树",
+      "designId": "ENV-002"
+    },
+    {
+      "assetId": "plant_tree_apple",
+      "path": "assets/plants/plant_tree_apple.glb",
+      "category": "plant",
+      "priority": "P1",
+      "name": "苹果树",
+      "designId": "PLA-013"
+    },
+    {
+      "assetId": "plant_flower_daisy",
+      "path": "assets/plants/plant_flower_daisy.glb",
+      "category": "plant",
+      "priority": "P1",
+      "name": "雏菊",
+      "designId": "PLA-021"
+    },
+    {
+      "assetId": "plant_tilled_soil",
+      "path": "assets/plants/plant_tilled_soil.glb",
+      "category": "plant",
+      "priority": "P0",
+      "name": "耕地地块",
+      "designId": "PLA-023"
+    },
+    {
+      "assetId": "animal_chicken_white",
+      "path": "assets/animals/animal_chicken_white.glb",
+      "category": "animal",
+      "priority": "P0",
+      "name": "白鸡",
+      "designId": "ANI-002"
+    },
+    {
+      "assetId": "animal_chicken_brown",
+      "path": "assets/animals/animal_chicken_brown.glb",
+      "category": "animal",
+      "priority": "P0",
+      "name": "棕鸡",
+      "designId": "ANI-002"
+    },
+    {
+      "assetId": "animal_cow_holstein",
+      "path": "assets/animals/animal_cow_holstein.glb",
+      "category": "animal",
+      "priority": "P0",
+      "name": "荷斯坦牛",
+      "designId": "ANI-001"
+    },
+    {
+      "assetId": "animal_cow_brown",
+      "path": "assets/animals/animal_cow_brown.glb",
+      "category": "animal",
+      "priority": "P1",
+      "name": "棕牛",
+      "designId": "ANI-001"
+    },
+    {
+      "assetId": "animal_sheep",
+      "path": "assets/animals/animal_sheep.glb",
+      "category": "animal",
+      "priority": "P1",
+      "name": "羊",
+      "designId": "ANI-003"
+    },
+    {
+      "assetId": "animal_pig",
+      "path": "assets/animals/animal_pig.glb",
+      "category": "animal",
+      "priority": "P1",
+      "name": "猪",
+      "designId": "ANI-004"
+    },
+    {
+      "assetId": "fish_carp",
+      "path": "assets/fish/fish_carp.glb",
+      "category": "fish",
+      "priority": "P0",
+      "name": "鲤鱼",
+      "designId": "FIS-001"
+    },
+    {
+      "assetId": "fish_bass",
+      "path": "assets/fish/fish_bass.glb",
+      "category": "fish",
+      "priority": "P0",
+      "name": "鲈鱼",
+      "designId": "FIS-002"
+    },
+    {
+      "assetId": "fish_trout",
+      "path": "assets/fish/fish_trout.glb",
+      "category": "fish",
+      "priority": "P1",
+      "name": "鳟鱼",
+      "designId": "FIS-003"
+    },
+    {
+      "assetId": "building_farmhouse",
+      "path": "assets/buildings/building_farmhouse.glb",
+      "category": "building",
+      "priority": "P0",
+      "name": "农舍",
+      "designId": "BLD-001",
+      "interactions": {
+        "doors": [
+          {
+            "name": "door",
+            "hinge": "left",
+            "angle": 110
+          }
+        ]
+      }
+    },
+    {
+      "assetId": "building_coop",
+      "path": "assets/buildings/building_coop.glb",
+      "category": "building",
+      "priority": "P0",
+      "name": "鸡舍",
+      "designId": "BLD-002",
+      "interactions": {
+        "doors": [
+          {
+            "name": "door",
+            "hinge": "left",
+            "angle": 110
+          }
+        ]
+      }
+    },
+    {
+      "assetId": "building_barn",
+      "path": "assets/buildings/building_barn.glb",
+      "category": "building",
+      "priority": "P0",
+      "name": "牛棚",
+      "designId": "BLD-003",
+      "interactions": {
+        "doors": [
+          {
+            "name": "bdoor_-1",
+            "hinge": "left",
+            "angle": 100
+          },
+          {
+            "name": "bdoor_1",
+            "hinge": "right",
+            "angle": -100
+          }
+        ]
+      }
+    },
+    {
+      "assetId": "building_well",
+      "path": "assets/buildings/building_well.glb",
+      "category": "building",
+      "priority": "P1",
+      "name": "水井",
+      "designId": "BLD-007"
+    },
+    {
+      "assetId": "furn_bed",
+      "path": "assets/buildings/furn_bed.glb",
+      "category": "furniture",
+      "priority": "P0",
+      "name": "床",
+      "designId": "FUR-001"
+    },
+    {
+      "assetId": "furn_table",
+      "path": "assets/buildings/furn_table.glb",
+      "category": "furniture",
+      "priority": "P0",
+      "name": "木桌",
+      "designId": "FUR-002"
+    },
+    {
+      "assetId": "furn_chair",
+      "path": "assets/buildings/furn_chair.glb",
+      "category": "furniture",
+      "priority": "P0",
+      "name": "椅子",
+      "designId": "FUR-003"
+    },
+    {
+      "assetId": "furn_cabinet",
+      "path": "assets/buildings/furn_cabinet.glb",
+      "category": "furniture",
+      "priority": "P0",
+      "name": "储物柜",
+      "designId": "FUR-004"
+    },
+    {
+      "assetId": "furn_stove",
+      "path": "assets/buildings/furn_stove.glb",
+      "category": "furniture",
+      "priority": "P0",
+      "name": "炉灶",
+      "designId": "FUR-005"
+    },
+    {
+      "assetId": "furn_bookshelf",
+      "path": "assets/buildings/furn_bookshelf.glb",
+      "category": "furniture",
+      "priority": "P0",
+      "name": "书架",
+      "designId": "FUR-006"
+    },
+    {
+      "assetId": "furn_lamp",
+      "path": "assets/buildings/furn_lamp.glb",
+      "category": "furniture",
+      "priority": "P0",
+      "name": "台灯",
+      "designId": "FUR-007"
+    },
+    {
+      "assetId": "furn_rug",
+      "path": "assets/buildings/furn_rug.glb",
+      "category": "furniture",
+      "priority": "P0",
+      "name": "地毯",
+      "designId": "FUR-008"
+    },
+    {
+      "assetId": "furn_sofa",
+      "path": "assets/buildings/furn_sofa.glb",
+      "category": "furniture",
+      "priority": "P1",
+      "name": "沙发",
+      "designId": "FUR-009"
+    },
+    {
+      "assetId": "building_kenney_house_a",
+      "path": "assets/kenney/building_kenney_house_a.glb",
+      "category": "building",
+      "priority": "P0",
+      "name": "肯尼小屋A",
+      "designId": "CC0-01",
+      "source": "kenney"
+    },
+    {
+      "assetId": "building_kenney_house_b",
+      "path": "assets/kenney/building_kenney_house_b.glb",
+      "category": "building",
+      "priority": "P0",
+      "name": "肯尼小屋B",
+      "designId": "CC0-02",
+      "source": "kenney"
+    },
+    {
+      "assetId": "building_kenney_house_c",
+      "path": "assets/kenney/building_kenney_house_c.glb",
+      "category": "building",
+      "priority": "P0",
+      "name": "肯尼小屋C",
+      "designId": "CC0-03",
+      "source": "kenney"
+    },
+    {
+      "assetId": "building_kenney_tower_a",
+      "path": "assets/kenney/building_kenney_tower_a.glb",
+      "category": "building",
+      "priority": "P1",
+      "name": "肯尼塔楼A",
+      "designId": "CC0-04",
+      "source": "kenney"
+    },
+    {
+      "assetId": "building_kenney_tower_b",
+      "path": "assets/kenney/building_kenney_tower_b.glb",
+      "category": "building",
+      "priority": "P1",
+      "name": "肯尼塔楼B",
+      "designId": "CC0-05",
+      "source": "kenney"
+    },
+    {
+      "assetId": "building_kenney_roof_gable",
+      "path": "assets/kenney/building_kenney_roof_gable.glb",
+      "category": "building",
+      "priority": "P0",
+      "name": "人字坡屋顶",
+      "designId": "CC0-06",
+      "source": "kenney"
+    },
+    {
+      "assetId": "building_kenney_roof_slanted",
+      "path": "assets/kenney/building_kenney_roof_slanted.glb",
+      "category": "building",
+      "priority": "P0",
+      "name": "单坡屋顶",
+      "designId": "CC0-07",
+      "source": "kenney"
+    },
+    {
+      "assetId": "prop_kenney_door_brown",
+      "path": "assets/kenney/prop_kenney_door_brown.glb",
+      "category": "prop",
+      "priority": "P1",
+      "name": "木门(棕)",
+      "designId": "CC0-08",
+      "source": "kenney"
+    },
+    {
+      "assetId": "prop_kenney_door_white",
+      "path": "assets/kenney/prop_kenney_door_white.glb",
+      "category": "prop",
+      "priority": "P1",
+      "name": "木门(白)",
+      "designId": "CC0-09",
+      "source": "kenney"
+    },
+    {
+      "assetId": "prop_kenney_window_brown",
+      "path": "assets/kenney/prop_kenney_window_brown.glb",
+      "category": "prop",
+      "priority": "P1",
+      "name": "窗(棕)",
+      "designId": "CC0-10",
+      "source": "kenney"
+    },
+    {
+      "assetId": "furn_workbench",
+      "path": "assets/buildings/furn_workbench.glb",
+      "category": "furniture",
+      "priority": "P1",
+      "name": "工作台",
+      "designId": "FUR-010"
+    },
+    {
+      "assetId": "prop_egg",
+      "path": "assets/props/prop_egg.glb",
+      "category": "prop",
+      "priority": "P0",
+      "name": "鸡蛋",
+      "designId": "ITM-008"
+    },
+    {
+      "assetId": "prop_milk",
+      "path": "assets/props/prop_milk.glb",
+      "category": "prop",
+      "priority": "P0",
+      "name": "牛奶",
+      "designId": "ITM-009"
+    },
+    {
+      "assetId": "prop_feed",
+      "path": "assets/props/prop_feed.glb",
+      "category": "prop",
+      "priority": "P0",
+      "name": "饲料",
+      "designId": "ITM-006"
+    },
+    {
+      "assetId": "prop_basket",
+      "path": "assets/props/prop_basket.glb",
+      "category": "prop",
+      "priority": "P0",
+      "name": "篮子",
+      "designId": "ITM-007"
+    },
+    {
+      "assetId": "prop_hoe",
+      "path": "assets/props/prop_hoe.glb",
+      "category": "prop",
+      "priority": "P0",
+      "name": "锄头",
+      "designId": "ITM-001"
+    },
+    {
+      "assetId": "prop_watering_can",
+      "path": "assets/props/prop_watering_can.glb",
+      "category": "prop",
+      "priority": "P0",
+      "name": "水壶",
+      "designId": "ITM-002"
+    },
+    {
+      "assetId": "prop_fishing_rod",
+      "path": "assets/props/prop_fishing_rod.glb",
+      "category": "prop",
+      "priority": "P0",
+      "name": "鱼竿",
+      "designId": "ITM-003"
+    },
+    {
+      "assetId": "prop_scythe",
+      "path": "assets/props/prop_scythe.glb",
+      "category": "prop",
+      "priority": "P0",
+      "name": "镰刀",
+      "designId": "ITM-004"
+    },
+    {
+      "assetId": "prop_shipping_box",
+      "path": "assets/props/prop_shipping_box.glb",
+      "category": "prop",
+      "priority": "P0",
+      "name": "出货箱",
+      "designId": "BLD-010"
+    },
+    {
+      "assetId": "prop_fence",
+      "path": "assets/props/prop_fence.glb",
+      "category": "prop",
+      "priority": "P0",
+      "name": "围栏",
+      "designId": "BLD-004"
+    },
+    {
+      "assetId": "terrain_grass",
+      "path": "assets/props/terrain_grass.glb",
+      "category": "terrain",
+      "priority": "P0",
+      "name": "草地地形块",
+      "designId": "ENV-001"
+    },
+    {
+      "assetId": "terrain_rock",
+      "path": "assets/props/terrain_rock.glb",
+      "category": "terrain",
+      "priority": "P0",
+      "name": "石头",
+      "designId": "ENV-003"
+    },
+    {
+      "assetId": "terrain_grass_tuft",
+      "path": "assets/props/terrain_grass_tuft.glb",
+      "category": "terrain",
+      "priority": "P1",
+      "name": "草丛",
+      "designId": "ENV-005"
+    },
+    {
+      "assetId": "building_quaternius_1Story",
+      "path": "assets/quaternius_glb/building_quaternius_1Story.glb",
+      "category": "building",
+      "priority": "P0",
+      "name": "Quaternius 单层小屋",
+      "designId": "QB-01",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "building_quaternius_1Story_GableRoof",
+      "path": "assets/quaternius_glb/building_quaternius_1Story_GableRoof.glb",
+      "category": "building",
+      "priority": "P1",
+      "name": "Quaternius 单层人字顶",
+      "designId": "QB-02",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "building_quaternius_1Story_RoundRoof",
+      "path": "assets/quaternius_glb/building_quaternius_1Story_RoundRoof.glb",
+      "category": "building",
+      "priority": "P1",
+      "name": "Quaternius 单层圆顶",
+      "designId": "QB-03",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "building_quaternius_1Story_Sign",
+      "path": "assets/quaternius_glb/building_quaternius_1Story_Sign.glb",
+      "category": "building",
+      "priority": "P1",
+      "name": "Quaternius 单层招牌店",
+      "designId": "QB-04",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "building_quaternius_2Story",
+      "path": "assets/quaternius_glb/building_quaternius_2Story.glb",
+      "category": "building",
+      "priority": "P0",
+      "name": "Quaternius 双层主楼",
+      "designId": "QB-05",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "building_quaternius_2Story_2",
+      "path": "assets/quaternius_glb/building_quaternius_2Story_2.glb",
+      "category": "building",
+      "priority": "P1",
+      "name": "Quaternius 双层副楼",
+      "designId": "QB-06",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "building_quaternius_2Story_Balcony",
+      "path": "assets/quaternius_glb/building_quaternius_2Story_Balcony.glb",
+      "category": "building",
+      "priority": "P1",
+      "name": "Quaternius 双层阳台",
+      "designId": "QB-07",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "building_quaternius_2Story_Center",
+      "path": "assets/quaternius_glb/building_quaternius_2Story_Center.glb",
+      "category": "building",
+      "priority": "P1",
+      "name": "Quaternius 双层中央",
+      "designId": "QB-08",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "building_quaternius_2Story_Columns",
+      "path": "assets/quaternius_glb/building_quaternius_2Story_Columns.glb",
+      "category": "building",
+      "priority": "P1",
+      "name": "Quaternius 双层廊柱",
+      "designId": "QB-09",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "building_quaternius_2Story_Double",
+      "path": "assets/quaternius_glb/building_quaternius_2Story_Double.glb",
+      "category": "building",
+      "priority": "P1",
+      "name": "Quaternius 双层双开",
+      "designId": "QB-10",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "building_quaternius_2Story_GableRoof",
+      "path": "assets/quaternius_glb/building_quaternius_2Story_GableRoof.glb",
+      "category": "building",
+      "priority": "P0",
+      "name": "Quaternius 双层人字顶",
+      "designId": "QB-11",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "building_quaternius_2Story_RoundRoof",
+      "path": "assets/quaternius_glb/building_quaternius_2Story_RoundRoof.glb",
+      "category": "building",
+      "priority": "P1",
+      "name": "Quaternius 双层圆顶",
+      "designId": "QB-12",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "building_quaternius_2Story_Sidehouse",
+      "path": "assets/quaternius_glb/building_quaternius_2Story_Sidehouse.glb",
+      "category": "building",
+      "priority": "P1",
+      "name": "Quaternius 双层侧屋",
+      "designId": "QB-13",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "building_quaternius_2Story_Sign",
+      "path": "assets/quaternius_glb/building_quaternius_2Story_Sign.glb",
+      "category": "building",
+      "priority": "P1",
+      "name": "Quaternius 双层招牌店",
+      "designId": "QB-14",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "building_quaternius_2Story_Slim",
+      "path": "assets/quaternius_glb/building_quaternius_2Story_Slim.glb",
+      "category": "building",
+      "priority": "P1",
+      "name": "Quaternius 双层窄楼",
+      "designId": "QB-15",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "building_quaternius_2Story_Stairs",
+      "path": "assets/quaternius_glb/building_quaternius_2Story_Stairs.glb",
+      "category": "building",
+      "priority": "P1",
+      "name": "Quaternius 双层楼梯",
+      "designId": "QB-16",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "building_quaternius_2Story_Wide",
+      "path": "assets/quaternius_glb/building_quaternius_2Story_Wide.glb",
+      "category": "building",
+      "priority": "P0",
+      "name": "Quaternius 双层宽楼",
+      "designId": "QB-17",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "building_quaternius_2Story_Wide_2Doors",
+      "path": "assets/quaternius_glb/building_quaternius_2Story_Wide_2Doors.glb",
+      "category": "building",
+      "priority": "P1",
+      "name": "Quaternius 双层宽门",
+      "designId": "QB-18",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "building_quaternius_3Story_Balcony",
+      "path": "assets/quaternius_glb/building_quaternius_3Story_Balcony.glb",
+      "category": "building",
+      "priority": "P1",
+      "name": "Quaternius 三层阳台",
+      "designId": "QB-19",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "building_quaternius_3Story_Slim",
+      "path": "assets/quaternius_glb/building_quaternius_3Story_Slim.glb",
+      "category": "building",
+      "priority": "P1",
+      "name": "Quaternius 三层窄楼",
+      "designId": "QB-20",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "building_quaternius_3Story_Small",
+      "path": "assets/quaternius_glb/building_quaternius_3Story_Small.glb",
+      "category": "building",
+      "priority": "P0",
+      "name": "Quaternius 三层小楼",
+      "designId": "QB-21",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "building_quaternius_4Story",
+      "path": "assets/quaternius_glb/building_quaternius_4Story.glb",
+      "category": "building",
+      "priority": "P0",
+      "name": "Quaternius 四层主楼",
+      "designId": "QB-22",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "building_quaternius_4Story_Center",
+      "path": "assets/quaternius_glb/building_quaternius_4Story_Center.glb",
+      "category": "building",
+      "priority": "P1",
+      "name": "Quaternius 四层中央",
+      "designId": "QB-23",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "building_quaternius_4Story_Wide_2Doors",
+      "path": "assets/quaternius_glb/building_quaternius_4Story_Wide_2Doors.glb",
+      "category": "building",
+      "priority": "P1",
+      "name": "Quaternius 四层宽门",
+      "designId": "QB-24",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "building_quaternius_4Story_Wide_2Doors_Roof",
+      "path": "assets/quaternius_glb/building_quaternius_4Story_Wide_2Doors_Roof.glb",
+      "category": "building",
+      "priority": "P1",
+      "name": "Quaternius 四层宽门带顶",
+      "designId": "QB-25",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "building_quaternius_6Story_Stack",
+      "path": "assets/quaternius_glb/building_quaternius_6Story_Stack.glb",
+      "category": "building",
+      "priority": "P0",
+      "name": "Quaternius 六层叠楼",
+      "designId": "QB-26",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "quaternius_5animal_bird",
+      "path": "assets/quaternius_animals5_glb/quaternius_bird.glb",
+      "category": "animal",
+      "priority": "P1",
+      "name": "Quaternius 鸟(蓝灰)",
+      "designId": "QA5-01",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "quaternius_5animal_Chick",
+      "path": "assets/quaternius_animals5_glb/quaternius_Chick.glb",
+      "category": "animal",
+      "priority": "P0",
+      "name": "Quaternius 小鸡(黄)",
+      "designId": "QA5-02",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "quaternius_5animal_Fish",
+      "path": "assets/quaternius_animals5_glb/quaternius_Fish.glb",
+      "category": "fish",
+      "priority": "P1",
+      "name": "Quaternius 鱼(橙红)",
+      "designId": "QA5-03",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "quaternius_5animal_Red_Fox",
+      "path": "assets/quaternius_animals5_glb/quaternius_Red Fox.glb",
+      "category": "animal",
+      "priority": "P1",
+      "name": "Quaternius 红狐",
+      "designId": "QA5-04",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "quaternius_5animal_Whale",
+      "path": "assets/quaternius_animals5_glb/quaternius_Whale.glb",
+      "category": "animal",
+      "priority": "P0",
+      "name": "Quaternius 鲸鱼(深蓝)",
+      "designId": "QA5-05",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "quaternius_farm_Cow",
+      "path": "assets/quaternius_farm_animals_glb/quaternius_Cow.glb",
+      "category": "animal",
+      "priority": "P0",
+      "name": "Quaternius 牛(白)",
+      "designId": "QFA-01",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "quaternius_farm_Horse",
+      "path": "assets/quaternius_farm_animals_glb/quaternius_Horse.glb",
+      "category": "animal",
+      "priority": "P0",
+      "name": "Quaternius 马(棕)",
+      "designId": "QFA-02",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "quaternius_farm_Llama",
+      "path": "assets/quaternius_farm_animals_glb/quaternius_Llama.glb",
+      "category": "animal",
+      "priority": "P1",
+      "name": "Quaternius 羊驼(米)",
+      "designId": "QFA-03",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "quaternius_farm_Pig",
+      "path": "assets/quaternius_farm_animals_glb/quaternius_Pig.glb",
+      "category": "animal",
+      "priority": "P1",
+      "name": "Quaternius 猪(粉)",
+      "designId": "QFA-04",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "quaternius_farm_Pug",
+      "path": "assets/quaternius_farm_animals_glb/quaternius_Pug.glb",
+      "category": "animal",
+      "priority": "P1",
+      "name": "Quaternius 哈巴狗(棕)",
+      "designId": "QFA-05",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "quaternius_farm_Sheep",
+      "path": "assets/quaternius_farm_animals_glb/quaternius_Sheep.glb",
+      "category": "animal",
+      "priority": "P1",
+      "name": "Quaternius 羊(白)",
+      "designId": "QFA-06",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "quaternius_farm_Zebra",
+      "path": "assets/quaternius_farm_animals_glb/quaternius_Zebra.glb",
+      "category": "animal",
+      "priority": "P1",
+      "name": "Quaternius 斑马",
+      "designId": "QFA-07",
+      "source": "cc0_quaternius"
+    },
+    {
+      "assetId": "building_upgrade_l1",
+      "designId": "UPG-1",
+      "path": "assets/upgrade_buildings/building_upgrade_l1.glb",
+      "category": "building",
+      "priority": "P0",
+      "name": "茅草小屋",
+      "desc": "升级 Lv.1：茅草小屋",
+      "interactions": {
+        "doors": [
+          {
+            "name": "door_panel",
+            "hinge": "left",
+            "angle": 110
+          }
+        ]
+      }
+    },
+    {
+      "assetId": "building_upgrade_l2",
+      "designId": "UPG-2",
+      "path": "assets/upgrade_buildings/building_upgrade_l2.glb",
+      "category": "building",
+      "priority": "P0",
+      "name": "木屋",
+      "desc": "升级 Lv.2：木屋",
+      "interactions": {
+        "doors": [
+          {
+            "name": "door_panel",
+            "hinge": "left",
+            "angle": 110
+          }
+        ]
+      }
+    },
+    {
+      "assetId": "building_upgrade_l3",
+      "designId": "UPG-3",
+      "path": "assets/upgrade_buildings/building_upgrade_l3.glb",
+      "category": "building",
+      "priority": "P0",
+      "name": "砖瓦房",
+      "desc": "升级 Lv.3：砖瓦房",
+      "interactions": {
+        "doors": [
+          {
+            "name": "door_panel",
+            "hinge": "left",
+            "angle": 110
+          }
+        ]
+      }
+    },
+    {
+      "assetId": "building_upgrade_l4",
+      "designId": "UPG-4",
+      "path": "assets/upgrade_buildings/building_upgrade_l4.glb",
+      "category": "building",
+      "priority": "P0",
+      "name": "石砌宅邸",
+      "desc": "升级 Lv.4：石砌宅邸",
+      "interactions": {
+        "doors": [
+          {
+            "name": "door_l",
+            "hinge": "left",
+            "angle": 100
+          },
+          {
+            "name": "door_r",
+            "hinge": "right",
+            "angle": -100
+          }
+        ]
+      }
+    },
+    {
+      "assetId": "building_upgrade_l5",
+      "designId": "UPG-5",
+      "path": "assets/upgrade_buildings/building_upgrade_l5.glb",
+      "category": "building",
+      "priority": "P0",
+      "name": "豪华庄园",
+      "desc": "升级 Lv.5：豪华庄园",
+      "interactions": {
+        "doors": [
+          {
+            "name": "door_l",
+            "hinge": "left",
+            "angle": 100
+          },
+          {
+            "name": "door_r",
+            "hinge": "right",
+            "angle": -100
+          }
+        ]
+      }
+    }
+  ]
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const viewer = document.getElementById('viewer');
+const catSel = document.getElementById('category');
+const infoEl = document.getElementById('info');
+const statsEl = document.getElementById('stats');
+
+// 直接从内嵌 script 读 manifest（不 fetch）
+const MANIFEST = JSON.parse(document.getElementById('manifest-data').textContent);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x7EC8E3);
+scene.fog = new THREE.Fog(0x7EC8E3, 25, 60);
+
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.1, 100);
+camera.position.set(2, 8, 16);
+
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+viewer.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(2, 1, -8);
+controls.enableDamping = true;
+controls.maxPolarAngle = Math.PI/2 - 0.05;
+controls.minDistance = 2;
+controls.maxDistance = 30;
+window.__camera = camera;    // 暴露给调试工具
+window.__controls = controls; // 暴露给调试工具
+window.__THREE = THREE;       // 暴露给调试工具
+
+scene.add(new THREE.HemisphereLight(0xDFEBFF, 0xFFF0D0, 1.6));
+const sun = new THREE.DirectionalLight(0xFFF8E8, 2.6);
+sun.position.set(8, 14, 6);
+sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024);
+sun.shadow.camera.left = -12; sun.shadow.camera.right = 12;
+sun.shadow.camera.top = 12; sun.shadow.camera.bottom = -12;
+scene.add(sun);
+const fill = new THREE.DirectionalLight(0xCFE8FF, 0.8);
+fill.position.set(-6, 8, -4);
+scene.add(fill);
+const rim = new THREE.DirectionalLight(0xFFFFFF, 0.5);
+rim.position.set(0, 4, -10);
+scene.add(rim);
+
+// 大地面
+const ground = new THREE.Mesh(
+  new THREE.CircleGeometry(15, 48),
+  new THREE.MeshToonMaterial({ color: 0x6BAF4E })
+);
+ground.rotation.x = -Math.PI/2;
+ground.position.y = -0.02;
+ground.receiveShadow = true;
+scene.add(ground);
+
+// 3 阶 toon gradient（非常亮：最暗 0xC0=75%，最亮 0xFF=100%）
+function makeToon() {
+  const g = new Uint8Array([0xC0, 0xC0, 0xC0, 0xFF, 0xE0, 0xE0, 0xE0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]);
+  const tex = new THREE.DataTexture(g, 3, 1, THREE.RGBAFormat);
+  tex.minFilter = THREE.NearestFilter;
+  tex.magFilter = THREE.NearestFilter;
+  return tex;
+}
+const gradientMap = makeToon();
+
+const loader = new GLTFLoader();
+const loadedModels = new Map();  // assetId -> THREE.Group
+window.__loadedModels = loadedModels;  // 暴露给调试工具
+
+// 默认场景：建筑+室内家具+动物+作物+道具（环形排列）
+const LAYOUT = [
+  // 建筑（前排，Kenney 专业资产）
+  [-8, -4, 0, 'building_kenney_house_a', 'building'],
+  [-4.5, -4, Math.PI/8, 'building_kenney_house_b', 'building'],
+  [-1, -4, 0, 'building_kenney_house_c', 'building'],
+  [3, -4, Math.PI/6, 'building_kenney_tower_a', 'building'],
+  [7, -4, 0, 'building_kenney_tower_b', 'building'],
+  // 屋顶件展示
+  [-8, 5, 0, 'building_kenney_roof_gable', 'building'],
+  [-5.5, 5, 0, 'building_kenney_roof_slanted', 'building'],
+  [-3, 5, 0, 'prop_kenney_door_brown', 'prop'],
+  [-0.5, 5, 0, 'prop_kenney_window_brown', 'prop'],
+  // Quaternius 完整纯建筑（不带 GableRoof/RoundRoof/Sign/Base 等模块/招牌后缀）
+  [10, -4, 0, 'building_quaternius_1Story', 'building'],
+  [10, -7, 0, 'building_quaternius_2Story_Wide', 'building'],
+  [10, -10, 0, 'building_quaternius_2Story_Sidehouse', 'building'],
+  [10, -13, 0, 'building_quaternius_3Story_Small', 'building'],
+  [10, -16, 0, 'building_quaternius_4Story', 'building'],
+  [10, -19, 0, 'building_quaternius_6Story_Stack', 'building'],
+  [13, -4, 0, 'building_quaternius_2Story_Balcony', 'building'],
+  [13, -7, 0, 'building_quaternius_2Story_Columns', 'building'],
+  [13, -10, 0, 'building_quaternius_2Story_Center', 'building'],
+  [13, -13, 0, 'building_quaternius_2Story', 'building'],
+  // 动物
+  [-6, 2, 0, 'animal_cow_holstein', 'animal'],
+  [-4, 2, Math.PI/6, 'animal_cow_brown', 'animal'],
+  [-2, 2, -Math.PI/4, 'animal_chicken_white', 'animal'],
+  [0, 2, Math.PI/3, 'animal_chicken_brown', 'animal'],
+  [2, 2, 0, 'animal_sheep', 'animal'],
+  [4, 2, -Math.PI/8, 'animal_pig', 'animal'],
+  // Quaternius 5 新动物
+  [-7, 5, 0, 'quaternius_5animal_Red_Fox', 'animal'],
+  [-5, 5, 0.3, 'quaternius_5animal_bird', 'animal'],
+  [-3, 5, 0, 'quaternius_5animal_Chick', 'animal'],
+  [-1, 5, 0, 'quaternius_5animal_Fish', 'fish'],
+  [1, 5, 0, 'quaternius_5animal_Whale', 'animal'],
+  // Quaternius 7 农场动物（移到近景 z=3 让相机能看到）
+  [3, 3, 0, 'quaternius_farm_Cow', 'animal'],
+  [5, 3, 0, 'quaternius_farm_Horse', 'animal'],
+  [7, 3, 0, 'quaternius_farm_Pig', 'animal'],
+  [-7, 3, 0, 'quaternius_farm_Sheep', 'animal'],
+  [-5, 3, 0, 'quaternius_farm_Llama', 'animal'],
+  [-3, 3, 0, 'quaternius_farm_Zebra', 'animal'],
+  [-1, 3, 0, 'quaternius_farm_Pug', 'animal'],
+  // 植物
+  [-6, -1, 0, 'plant_wheat_mature', 'plant'],
+  [-4, -1, 0.3, 'plant_carrot_mature', 'plant'],
+  [-2, -1, 0, 'plant_tomato', 'plant'],
+  [0, -1, 0.2, 'plant_pumpkin', 'plant'],
+  [2, -1, 0, 'plant_tree_oak', 'plant'],
+  [4, -1, 0.5, 'plant_tree_apple', 'plant'],
+  // 道具
+  [-6, 5, 0, 'prop_shipping_box', 'prop'],
+  [-4, 5, 0, 'prop_fence', 'prop'],
+  [-2, 5, 0, 'prop_feed', 'prop'],
+  [0, 5, 0, 'prop_egg', 'prop'],
+  [2, 5, 0, 'prop_basket', 'prop'],
+  [4, 5, 0, 'prop_hoe', 'prop'],
+
+  // 升级链建筑（5 级，x=16 列）
+  [16, -4, 0, 'building_upgrade_l1', 'building'],
+  [16, -7, 0, 'building_upgrade_l2', 'building'],
+  [16, -10, 0, 'building_upgrade_l3', 'building'],
+  [16, -13, 0, 'building_upgrade_l4', 'building'],
+  [16, -16, 0, 'building_upgrade_l5', 'building'],
+];
+
+// 农舍室内家具（相对农舍坐标摆放，农舍在 (-6,-4) 旋转 PI/2）
+const INTERIOR_FURNITURE = [
+  // [家具assetId, 相对x, 相对z, 旋转]
+  ['furn_bed', -0.6, -0.6, 0],
+  ['furn_table', 0.0, 0.2, 0],
+  ['furn_chair', 0.5, 0.3, Math.PI/4],
+  ['furn_cabinet', 0.7, -0.7, 0],
+  ['furn_stove', -0.7, 0.4, 0],
+  ['furn_bookshelf', 0.3, -0.75, 0],
+  ['furn_lamp', -0.35, 0.25, 0],
+  ['furn_rug', 0.0, -0.1, 0],
+];
+
+// 门交互状态：doorKey -> {group, panel, open}
+const doorRegistry = new Map();
+window.__doorRegistry = doorRegistry;  // 暴露给调试工具
+
+function applyToon(root) {
+  root.traverse(o => {
+    if (o.isMesh) {
+      o.castShadow = true; o.receiveShadow = true;
+      // 关键：如果原 GLB 材质有 map 纹理（baseColorTexture），保留纹理，toon 只是改 shading
+      // 否则才走顶点色 / 默认色逻辑
+      const origMat = o.material;
+      const hasMap = origMat && (origMat.map ||
+        (origMat.pbrMetallicRoughness && origMat.pbrMetallicRoughness.baseColorTexture &&
+         origMat.pbrMetallicRoughness.baseColorTexture.index !== undefined && origMat.pbrMetallicRoughness.baseColorTexture.index !== null &&
+         (origMat.pbrMetallicRoughness.baseColorTexture.source !== undefined || origMat.pbrMetallicRoughness.baseColorTexture.texture !== undefined)));
+      if (hasMap) {
+        // 保留贴图，用 toon 渲染：把原 map 复制到 MeshToonMaterial.map
+        const map = origMat.map || (origMat.pbrMetallicRoughness && origMat.pbrMetallicRoughness.baseColorTexture);
+        o.material = new THREE.MeshToonMaterial({
+          color: 0xffffff,
+          map: map,
+          gradientMap,
+        });
+        return;
+      }
+      const attr = o.geometry && o.geometry.attributes.color;
+      const hasVertexColors = !!(attr && attr.itemSize >= 3);
+      let baseColorHex = 0xcccccc;
+      if (hasVertexColors) {
+        const a = attr.array;
+        baseColorHex = (a[0] << 16) | (a[1] << 8) | a[2];
+      } else if (origMat && origMat.color && !Array.isArray(origMat)) {
+        const h = origMat.color.getHex();
+        if (h !== 0xffffff) baseColorHex = h;
+      }
+      o.material = new THREE.MeshToonMaterial({
+        color: baseColorHex,
+        gradientMap,
+        vertexColors: false
+      });
+    }
+  });
+}
+
+function placeGround(model, x, z, ry=0) {
+  model.rotation.y = ry;
+  const box = new THREE.Box3().setFromObject(model);
+  model.position.y = -box.min.y;
+  model.position.x = x;
+  model.position.z = z;
+  scene.add(model);
+}
+
+function loadAsset(entry, x, z, ry=0) {
+  return new Promise((resolve) => {
+    loader.load('./' + entry.path, (gltf) => {
+      applyToon(gltf.scene);
+      const group = new THREE.Group();
+      group.add(gltf.scene);
+      placeGround(group, x, z, ry);
+      loadedModels.set(entry.assetId, group);
+      // 注册门交互：门板部件（plank/rail/handle）挂到 pivot 绕铰链旋转
+      if (entry.interactions && entry.interactions.doors) {
+        entry.interactions.doors.forEach((doorCfg) => {
+          const prefix = doorCfg.name;
+          const moving = [];
+          gltf.scene.traverse(o => {
+            if (!o.isMesh || !o.name.startsWith(prefix)) return;
+            if (/plank|rail|handle/.test(o.name)) moving.push(o);
+          });
+          if (moving.length > 0) {
+            const pivot = setupDoorPivot(gltf.scene, moving, doorCfg.hinge || 'left');
+            const key = entry.assetId + ':' + prefix;
+            doorRegistry.set(key, { group, parts: moving, pivot, cfg: doorCfg, open: false });
+          }
+        });
+      }
+      resolve(group);
+    }, undefined, (err) => {
+      console.warn('FAIL', entry.assetId, err);
+      resolve(null);
+    });
+  });
+}
+
+function loadInteriorFurniture() {
+  // 农舍所在位置与旋转
+  const farmhouse = loadedModels.get('building_farmhouse');
+  if (!farmhouse) return;
+  const baseX = -6, baseZ = -4, baseRy = Math.PI/2;
+  INTERIOR_FURNITURE.forEach(([fid, fx, fz, fry]) => {
+    const entry = MANIFEST.assets.find(a => a.assetId === fid);
+    if (!entry) return;
+    loader.load('./' + entry.path, (gltf) => {
+      applyToon(gltf.scene);
+      // 计算相对农舍旋转后的偏移
+      const cs = Math.cos(baseRy), sn = Math.sin(baseRy);
+      const wx = baseX + (fx * cs + fz * sn);
+      const wz = baseZ + (-fx * sn + fz * cs);
+      const box = new THREE.Box3().setFromObject(gltf.scene);
+      gltf.scene.position.y = -box.min.y;
+      gltf.scene.position.x = wx;
+      gltf.scene.position.z = wz;
+      gltf.scene.rotation.y = baseRy + fry;
+      scene.add(gltf.scene);
+      loadedModels.set(fid + '_interior', gltf.scene);
+    });
+  });
+}
+
+// 门开关：点击门面板切换（门板=plank/rail/handle 可动部件，门框固定）
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+const doorObjects = [];
+
+function setupDoorPivot(sceneRoot, parts, hingeSide) {
+  // 创建 pivot 并放到铰链轴位置，然后把门板部件 attach（保持世界变换）
+  const pivot = new THREE.Group();
+  const box = new THREE.Box3();
+  parts.forEach(p => box.expandByObject(p));
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const hingeX = hingeSide === 'right' ? center.x + size.x / 2 : center.x - size.x / 2;
+  pivot.position.set(hingeX, center.y, center.z);
+  sceneRoot.add(pivot);
+  parts.forEach(p => pivot.attach(p));
+  return pivot;
+}
+
+function collectDoorMeshes() {
+  doorObjects.length = 0;
+  doorRegistry.forEach((rec, key) => {
+    if (rec.parts && rec.parts.length > 0) {
+      rec.parts.forEach(p => doorObjects.push({ mesh: p, rec, key }));
+    }
+  });
+}
+
+function onPointerDown(e) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+  const meshes = doorObjects.map(d => d.mesh);
+  const hits = raycaster.intersectObjects(meshes, false);
+  if (hits.length > 0) {
+    const hit = doorObjects.find(d => d.mesh === hits[0].object);
+    if (hit) toggleDoor(hit.key);
+  }
+}
+
+function toggleDoor(key) {
+  const rec = doorRegistry.get(key);
+  if (!rec || !rec.pivot) return;
+  rec.open = !rec.open;
+  const angle = rec.open ? THREE.MathUtils.degToRad(rec.cfg.angle || 110) : 0;
+  const sign = rec.cfg.hinge === 'right' ? -1 : 1;
+  rec.pivot.rotation.y = angle * sign;
+  infoEl.textContent = `门: ${rec.open ? '开' : '关'} (${rec.key})`;
+  collectDoorMeshes();
+}
+
+let currentCategory = 'all';
+function updateVisibility() {
+  loadedModels.forEach((model, assetId) => {
+    const entry = MANIFEST.assets.find(a => a.assetId === assetId);
+    if (!entry) return;
+    const show = currentCategory === 'all' || entry.category === currentCategory;
+    model.visible = show;
+  });
+  const total = MANIFEST.assets.length;
+  const loaded = loadedModels.size;
+  statsEl.innerHTML = `已加载 <b style="color:#FFD166">${loaded}/${total}</b> 个资产<br>🖱 点击建筑的门可开合`;
+}
+
+async function init() {
+  infoEl.textContent = '正在加载资产...';
+  const tasks = LAYOUT.map(([x, z, ry, id]) => {
+    const entry = MANIFEST.assets.find(a => a.assetId === id);
+    return entry ? loadAsset(entry, x, z, ry) : Promise.resolve(null);
+  });
+  await Promise.all(tasks);
+  loadInteriorFurniture();
+  collectDoorMeshes();
+  infoEl.textContent = `✔ 完成 ${loadedModels.size} 个资产就位 · 点击门可开关`;
+  updateVisibility();
+}
+
+catSel.addEventListener('change', () => {
+  currentCategory = catSel.value;
+  updateVisibility();
+  const label = catSel.options[catSel.selectedIndex].textContent;
+  infoEl.textContent = `筛选: ${label}`;
+});
+
+renderer.domElement.addEventListener('pointerdown', onPointerDown);
+
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+init();
+</script>
+</body>
+</html>

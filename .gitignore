@@ -1,0 +1,24 @@
+# 下载缓存（zip 等）
+downloads/
+
+# 原始源文件（OBJ/FBX/blend，可经 tools/asset_generator/import_*.py 重新生成）
+assets/quaternius/
+assets/quaternius_animals5/
+assets/quaternius_farm_animals/
+assets/quaternius_trees/
+
+# 临时/测试文件
+_test*.glb
+_tex_sheet.png
+_test.glb
+_test_tex.glb
+
+# 验证截图（过程产物）
+verify_*.png
+
+# 工作区记忆
+.workbuddy/
+
+# OS
+Thumbs.db
+.DS_Store
