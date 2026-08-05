@@ -21,6 +21,8 @@ _srv_check.txt
 
 # 验证截图（过程产物）
 verify_*.png
+# 根目录遗留的旧版验证脚本（最终版在 tools/ 下）
+/verify_lifecycle.js
 
 # 工作区记忆
 .workbuddy/
