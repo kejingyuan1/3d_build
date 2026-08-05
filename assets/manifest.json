@@ -3361,6 +3361,603 @@
       ],
       "sizeKB": 107.2,
       "loadPriority": 0
+    },
+    {
+      "assetId": "plant_tomato_seed",
+      "designId": "PLA-S01",
+      "path": "plants/plant_tomato_seed.glb",
+      "category": "plant",
+      "priority": "P1",
+      "name": "番茄-种子",
+      "desc": "番茄生长阶段 1/3",
+      "source": "procedural",
+      "collision": {
+        "type": "none"
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "plants/plant_tomato_seed.glb"
+        }
+      ],
+      "sizeKB": 5.1,
+      "loadPriority": 1
+    },
+    {
+      "assetId": "plant_tomato_seedling",
+      "designId": "PLA-S02",
+      "path": "plants/plant_tomato_seedling.glb",
+      "category": "plant",
+      "priority": "P1",
+      "name": "番茄-幼苗",
+      "desc": "番茄生长阶段 2/3",
+      "source": "procedural",
+      "collision": {
+        "type": "none"
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "plants/plant_tomato_seedling.glb"
+        }
+      ],
+      "sizeKB": 5.2,
+      "loadPriority": 1
+    },
+    {
+      "assetId": "plant_pumpkin_seed",
+      "designId": "PLA-S04",
+      "path": "plants/plant_pumpkin_seed.glb",
+      "category": "plant",
+      "priority": "P1",
+      "name": "南瓜-种子",
+      "desc": "南瓜生长阶段 1/3",
+      "source": "procedural",
+      "collision": {
+        "type": "none"
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "plants/plant_pumpkin_seed.glb"
+        }
+      ],
+      "sizeKB": 5.2,
+      "loadPriority": 1
+    },
+    {
+      "assetId": "plant_pumpkin_seedling",
+      "designId": "PLA-S05",
+      "path": "plants/plant_pumpkin_seedling.glb",
+      "category": "plant",
+      "priority": "P1",
+      "name": "南瓜-幼苗",
+      "desc": "南瓜生长阶段 2/3",
+      "source": "procedural",
+      "collision": {
+        "type": "none"
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "plants/plant_pumpkin_seedling.glb"
+        }
+      ],
+      "sizeKB": 7.0,
+      "loadPriority": 1
+    },
+    {
+      "assetId": "plant_tree_oak_spring",
+      "designId": "PLA-S07",
+      "path": "plants/plant_tree_oak_spring.glb",
+      "category": "plant",
+      "priority": "P0",
+      "name": "橡树-春",
+      "desc": "橡树季节皮肤-春",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "cylinder",
+        "params": {
+          "r": 0.08,
+          "h": 1.0
+        }
+      },
+      "animations": [
+        "sway"
+      ],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "plants/plant_tree_oak_spring.glb"
+        }
+      ],
+      "sizeKB": 32.1,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "plant_tree_oak_summer",
+      "designId": "PLA-S08",
+      "path": "plants/plant_tree_oak_summer.glb",
+      "category": "plant",
+      "priority": "P0",
+      "name": "橡树-夏",
+      "desc": "橡树季节皮肤-夏",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "cylinder",
+        "params": {
+          "r": 0.08,
+          "h": 1.0
+        }
+      },
+      "animations": [
+        "sway"
+      ],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "plants/plant_tree_oak_summer.glb"
+        }
+      ],
+      "sizeKB": 21.9,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "plant_tree_oak_autumn",
+      "designId": "PLA-S09",
+      "path": "plants/plant_tree_oak_autumn.glb",
+      "category": "plant",
+      "priority": "P0",
+      "name": "橡树-秋",
+      "desc": "橡树季节皮肤-秋",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "cylinder",
+        "params": {
+          "r": 0.08,
+          "h": 1.0
+        }
+      },
+      "animations": [
+        "sway"
+      ],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "plants/plant_tree_oak_autumn.glb"
+        }
+      ],
+      "sizeKB": 22.7,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "plant_tree_oak_winter",
+      "designId": "PLA-S10",
+      "path": "plants/plant_tree_oak_winter.glb",
+      "category": "plant",
+      "priority": "P0",
+      "name": "橡树-冬",
+      "desc": "橡树季节皮肤-冬",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "cylinder",
+        "params": {
+          "r": 0.08,
+          "h": 1.0
+        }
+      },
+      "animations": [
+        "sway"
+      ],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "plants/plant_tree_oak_winter.glb"
+        }
+      ],
+      "sizeKB": 18.1,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "plant_tree_apple_spring",
+      "designId": "PLA-S11",
+      "path": "plants/plant_tree_apple_spring.glb",
+      "category": "plant",
+      "priority": "P0",
+      "name": "苹果树-春",
+      "desc": "苹果树季节皮肤-春",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "cylinder",
+        "params": {
+          "r": 0.08,
+          "h": 1.0
+        }
+      },
+      "animations": [
+        "sway"
+      ],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "plants/plant_tree_apple_spring.glb"
+        }
+      ],
+      "sizeKB": 34.7,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "plant_tree_apple_summer",
+      "designId": "PLA-S12",
+      "path": "plants/plant_tree_apple_summer.glb",
+      "category": "plant",
+      "priority": "P0",
+      "name": "苹果树-夏",
+      "desc": "苹果树季节皮肤-夏",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "cylinder",
+        "params": {
+          "r": 0.08,
+          "h": 1.0
+        }
+      },
+      "animations": [
+        "sway"
+      ],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "plants/plant_tree_apple_summer.glb"
+        }
+      ],
+      "sizeKB": 29.6,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "plant_tree_apple_autumn",
+      "designId": "PLA-S13",
+      "path": "plants/plant_tree_apple_autumn.glb",
+      "category": "plant",
+      "priority": "P0",
+      "name": "苹果树-秋",
+      "desc": "苹果树季节皮肤-秋",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "cylinder",
+        "params": {
+          "r": 0.08,
+          "h": 1.0
+        }
+      },
+      "animations": [
+        "sway"
+      ],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "plants/plant_tree_apple_autumn.glb"
+        }
+      ],
+      "sizeKB": 29.6,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "plant_tree_apple_winter",
+      "designId": "PLA-S14",
+      "path": "plants/plant_tree_apple_winter.glb",
+      "category": "plant",
+      "priority": "P0",
+      "name": "苹果树-冬",
+      "desc": "苹果树季节皮肤-冬",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "cylinder",
+        "params": {
+          "r": 0.08,
+          "h": 1.0
+        }
+      },
+      "animations": [
+        "sway"
+      ],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "plants/plant_tree_apple_winter.glb"
+        }
+      ],
+      "sizeKB": 18.1,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "terrain_grass_spring",
+      "designId": "TER-S01",
+      "path": "props/terrain_grass_spring.glb",
+      "category": "terrain",
+      "priority": "P1",
+      "name": "草地-春",
+      "desc": "草地季节皮肤-春",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "box",
+        "params": {
+          "hx": 0.5,
+          "hy": 0.05,
+          "hz": 0.5
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "props/terrain_grass_spring.glb"
+        }
+      ],
+      "sizeKB": 5.2,
+      "loadPriority": 1
+    },
+    {
+      "assetId": "terrain_grass_summer",
+      "designId": "TER-S02",
+      "path": "props/terrain_grass_summer.glb",
+      "category": "terrain",
+      "priority": "P1",
+      "name": "草地-夏",
+      "desc": "草地季节皮肤-夏",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "box",
+        "params": {
+          "hx": 0.5,
+          "hy": 0.05,
+          "hz": 0.5
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "props/terrain_grass_summer.glb"
+        }
+      ],
+      "sizeKB": 1.5,
+      "loadPriority": 1
+    },
+    {
+      "assetId": "terrain_grass_autumn",
+      "designId": "TER-S03",
+      "path": "props/terrain_grass_autumn.glb",
+      "category": "terrain",
+      "priority": "P1",
+      "name": "草地-秋",
+      "desc": "草地季节皮肤-秋",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "box",
+        "params": {
+          "hx": 0.5,
+          "hy": 0.05,
+          "hz": 0.5
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "props/terrain_grass_autumn.glb"
+        }
+      ],
+      "sizeKB": 4.3,
+      "loadPriority": 1
+    },
+    {
+      "assetId": "terrain_grass_winter",
+      "designId": "TER-S04",
+      "path": "props/terrain_grass_winter.glb",
+      "category": "terrain",
+      "priority": "P1",
+      "name": "草地-冬",
+      "desc": "草地季节皮肤-冬",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "box",
+        "params": {
+          "hx": 0.5,
+          "hy": 0.05,
+          "hz": 0.5
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "props/terrain_grass_winter.glb"
+        }
+      ],
+      "sizeKB": 5.2,
+      "loadPriority": 1
+    },
+    {
+      "assetId": "plant_tilled_soil_spring",
+      "designId": "PLA-S15",
+      "path": "plants/plant_tilled_soil_spring.glb",
+      "category": "plant",
+      "priority": "P1",
+      "name": "耕地-春",
+      "desc": "耕地季节皮肤-春",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "box",
+        "params": {
+          "hx": 0.5,
+          "hy": 0.03,
+          "hz": 0.5
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "plants/plant_tilled_soil_spring.glb"
+        }
+      ],
+      "sizeKB": 6.0,
+      "loadPriority": 1
+    },
+    {
+      "assetId": "plant_tilled_soil_summer",
+      "designId": "PLA-S16",
+      "path": "plants/plant_tilled_soil_summer.glb",
+      "category": "plant",
+      "priority": "P1",
+      "name": "耕地-夏",
+      "desc": "耕地季节皮肤-夏",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "box",
+        "params": {
+          "hx": 0.5,
+          "hy": 0.03,
+          "hz": 0.5
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "plants/plant_tilled_soil_summer.glb"
+        }
+      ],
+      "sizeKB": 3.7,
+      "loadPriority": 1
+    },
+    {
+      "assetId": "plant_tilled_soil_autumn",
+      "designId": "PLA-S17",
+      "path": "plants/plant_tilled_soil_autumn.glb",
+      "category": "plant",
+      "priority": "P1",
+      "name": "耕地-秋",
+      "desc": "耕地季节皮肤-秋(干裂)",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "box",
+        "params": {
+          "hx": 0.5,
+          "hy": 0.03,
+          "hz": 0.5
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "plants/plant_tilled_soil_autumn.glb"
+        }
+      ],
+      "sizeKB": 7.4,
+      "loadPriority": 1
+    },
+    {
+      "assetId": "plant_tilled_soil_winter",
+      "designId": "PLA-S18",
+      "path": "plants/plant_tilled_soil_winter.glb",
+      "category": "plant",
+      "priority": "P1",
+      "name": "耕地-冬",
+      "desc": "耕地季节皮肤-冬(覆雪)",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "box",
+        "params": {
+          "hx": 0.5,
+          "hy": 0.03,
+          "hz": 0.5
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "plants/plant_tilled_soil_winter.glb"
+        }
+      ],
+      "sizeKB": 6.0,
+      "loadPriority": 1
+    },
+    {
+      "assetId": "plant_tomato_mature",
+      "designId": "PLA-S03",
+      "path": "plants/plant_tomato_mature.glb",
+      "category": "plant",
+      "priority": "P0",
+      "name": "番茄-成熟",
+      "desc": "番茄生长阶段 3/3",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "cylinder",
+        "params": {
+          "r": 0.12,
+          "h": 0.3
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "plants/plant_tomato_mature.glb"
+        }
+      ],
+      "sizeKB": 69.8,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "plant_pumpkin_mature",
+      "designId": "PLA-S06",
+      "path": "plants/plant_pumpkin_mature.glb",
+      "category": "plant",
+      "priority": "P0",
+      "name": "南瓜-成熟",
+      "desc": "南瓜生长阶段 3/3",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "sphere",
+        "params": {
+          "r": 0.22
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "plants/plant_pumpkin_mature.glb"
+        }
+      ],
+      "sizeKB": 36.8,
+      "loadPriority": 0
     }
   ]
 }

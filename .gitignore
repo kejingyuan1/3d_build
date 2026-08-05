@@ -16,6 +16,8 @@ _py_*
 _tmp_*
 _*_out.txt
 _lc_verify_out.txt
+_dbg.txt
+_srv_check.txt
 
 # 验证截图（过程产物）
 verify_*.png

@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>农场牧场 3D 资产交互演示</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Microsoft YaHei", sans-serif; background: #1a2332; color: #eee; overflow: hidden; }
+  #viewer { position: absolute; inset: 0; }
+  /* 顶部操作面板 */
+  #panel {
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    background: rgba(20,28,40,0.85); backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.15); border-radius: 12px;
+    padding: 10px 18px; display: flex; gap: 24px; align-items: center;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4); z-index: 10; flex-wrap: wrap; justify-content: center;
+  }
+  .group { display: flex; align-items: center; gap: 8px; }
+  .group-label { font-size: 13px; color: #9fb3c8; white-space: nowrap; }
+  .btn {
+    background: #2b3a52; color: #dfe9f5; border: 1px solid #3d5068;
+    padding: 6px 14px; border-radius: 8px; font-size: 13px; cursor: pointer;
+    transition: all .15s; white-space: nowrap;
+  }
+  .btn:hover { background: #3a4d6a; transform: translateY(-1px); }
+  .btn.active { background: #4a9de0; border-color: #6cb8f0; color: #fff; box-shadow: 0 0 10px rgba(74,157,224,.5); }
+  .btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+  /* 状态栏 */
+  #status {
+    position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
+    background: rgba(20,28,40,0.8); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px; padding: 8px 16px; font-size: 13px; color: #b8c8dc;
+    z-index: 10; text-align: center; max-width: 90%;
+  }
+  #status b { color: #4a9de0; }
+  /* 分区提示 */
+  #legend {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    background: rgba(20,28,40,0.75); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px; padding: 12px 14px; font-size: 12px; color: #9fb3c8;
+    z-index: 10; line-height: 1.8;
+  }
+  #legend .t { color: #dfe9f5; font-weight: bold; margin-bottom: 6px; }
+  #legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+  #loading {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: #1a2332; z-index: 100; font-size: 18px; color: #9fb3c8;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner { width: 36px; height: 36px; border: 4px solid #2b3a52; border-top-color: #4a9de0; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 14px; }
+</style>
+</head>
+<body>
+<div id="loading"><div class="spinner"></div><span>加载 3D 资产...</span></div>
+<div id="viewer"></div>
+
+<div id="panel">
+  <!-- 生命周期演示 -->
+  <div class="group">
+    <span class="group-label">🐣 养殖生命周期</span>
+    <button class="btn" id="btnEgg" disabled>蛋</button>
+    <button class="btn" id="btnBaby" disabled>幼年</button>
+    <button class="btn" id="btnAdult" disabled>成年</button>
+  </div>
+  <div class="group">
+    <span class="group-label">🏠 建筑升级</span>
+    <button class="btn" id="btnL1" disabled>L1 茅草</button>
+    <button class="btn" id="btnL2" disabled>L2 木屋</button>
+    <button class="btn" id="btnL3" disabled>L3 砖房</button>
+    <button class="btn" id="btnL4" disabled>L4 石宅</button>
+    <button class="btn" id="btnL5" disabled>L5 庄园</button>
+  </div>
+  <div class="group">
+    <span class="group-label">🌤 季节</span>
+    <button class="btn" id="btnSpring">春</button>
+    <button class="btn" id="btnSummer" class="active">夏</button>
+    <button class="btn" id="btnAutumn">秋</button>
+    <button class="btn" id="btnWinter">冬</button>
+  </div>
+</div>
+
+<div id="legend">
+  <div class="t">演示分区</div>
+  <div><span class="dot" style="background:#E8C84A"></span>左侧：养殖生命周期（蛋/幼/成）</div>
+  <div><span class="dot" style="background:#4a9de0"></span>中后：5 级建筑升级链</div>
+  <div><span class="dot" style="background:#7EC850"></span>右侧：季节树（点季节切换）</div>
+  <div style="margin-top:8px;color:#6b7f96">🖱 左键旋转 · 滚轮缩放 · 右键平移</div>
+</div>
+
+<div id="status">加载中...</div>
+
+<script type="importmap">
+{ "imports": {
+    "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+// ============ 场景搭建 ============
+const viewer = document.getElementById('viewer');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87CEEB);
+scene.fog = new THREE.Fog(0x87CEEB, 30, 60);
+
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.1, 100);
+camera.position.set(0, 10, 22);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+viewer.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 1, 0);
+controls.enableDamping = true;
+controls.maxPolarAngle = Math.PI/2 - 0.05;
+
+// 光照（亮色）
+scene.add(new THREE.HemisphereLight(0xDFEBFF, 0xFFF0D0, 1.2));
+const sun = new THREE.DirectionalLight(0xFFF8E8, 2.2);
+sun.position.set(8, 14, 6);
+sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024);
+scene.add(sun);
+const fill = new THREE.DirectionalLight(0xCFE8FF, 0.5);
+fill.position.set(-6, 8, -4);
+scene.add(fill);
+
+// 地面
+const ground = new THREE.Mesh(
+  new THREE.CircleGeometry(18, 48),
+  new THREE.MeshToonMaterial({ color: 0x8BC34A })
+);
+ground.rotation.x = -Math.PI/2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+const loader = new GLTFLoader();
+const loaded = new Map();
+
+// 当前状态
+const state = {
+  lifecycleStage: 'adult',   // egg / baby / adult
+  buildingLevel: 3,          // 1-5
+  season: 'summer',          // spring/summer/autumn/winter
+};
+const stageModels = new Map();  // stage -> group
+const levelModels = new Map();  // level -> group
+const treeModels = new Map();   // season -> group
+
+// ============ 加载工具 ============
+async function loadGLB(path, pos, rot=0, scale=1) {
+  const gltf = await loader.loadAsync(path);
+  const model = gltf.scene;
+  model.position.copy(pos);
+  model.rotation.y = rot;
+  model.scale.setScalar(scale);
+  applyToon(model);
+  scene.add(model);
+  return model;
+}
+
+function applyToon(root) {
+  root.traverse(o => {
+    if (o.isMesh) {
+      o.castShadow = true; o.receiveShadow = true;
+      const orig = o.material;
+      let baseColor = 0xcccccc;
+      if (o.geometry && o.geometry.attributes.color) {
+        const a = o.geometry.attributes.color.array;
+        baseColor = (a[0]<<16) | (a[1]<<8) | a[2];
+      } else if (orig && orig.color) {
+        const h = orig.color.getHex();
+        if (h !== 0xffffff) baseColor = h;
+      }
+      const hasMap = orig && (orig.map || (orig.pbrMetallicRoughness && orig.pbrMetallicRoughness.baseColorTexture));
+      o.material = new THREE.MeshToonMaterial({
+        color: 0xffffff,
+        map: hasMap ? (orig.map || orig.pbrMetallicRoughness.baseColorTexture) : null,
+        gradientMap: makeGradient(),
+      });
+      if (!hasMap) o.material.color.setHex(baseColor);
+    }
+  });
+}
+
+function makeGradient() {
+  const g = new Uint8Array([0xC0,0xC0,0xC0,0xFF, 0xE0,0xE0,0xE0,0xFF, 0xFF,0xFF,0xFF,0xFF]);
+  const tex = new THREE.DataTexture(g, 3, 1, THREE.RGBAFormat);
+  tex.minFilter = tex.magFilter = THREE.NearestFilter;
+  return tex;
+}
+
+// ============ 生命周期演示（蛋/幼/成）============
+// 位置前移到 z=6，避开中后建筑区（x=0,z=-6），左右分开显示
+const LIFECYCLE = [
+  { stage: 'egg',   path: 'assets/lifecycle/lifecycle_chicken_egg_brown.glb', pos: new THREE.Vector3(-7, 0, 6) },
+  { stage: 'egg2',  path: 'assets/lifecycle/lifecycle_duck_egg.glb',          pos: new THREE.Vector3(-6.5, 0, 6) },
+  { stage: 'baby',  path: 'assets/lifecycle/lifecycle_chicken_baby.glb',      pos: new THREE.Vector3(-7, 0, 6) },
+  { stage: 'baby2', path: 'assets/lifecycle/lifecycle_duck_baby.glb',         pos: new THREE.Vector3(-6.5, 0, 6) },
+  { stage: 'adult', path: 'assets/lifecycle/lifecycle_duck_adult.glb',        pos: new THREE.Vector3(-7, 0, 6) },
+  { stage: 'goose', path: 'assets/lifecycle/lifecycle_goose_adult.glb',       pos: new THREE.Vector3(-6, 0, 6) },
+];
+
+// ============ 建筑升级链 ============
+const LEVELS = [1,2,3,4,5].map(l => ({
+  level: l,
+  path: `assets/upgrade_buildings/building_upgrade_l${l}.glb`,
+  pos: new THREE.Vector3(0, 0, -6),
+}));
+
+// ============ 季节树 ============
+const SEASONS = ['spring','summer','autumn','winter'].map(s => ({
+  season: s,
+  path: `assets/plants/plant_tree_oak_${s}.glb`,
+  pos: new THREE.Vector3(8, 0, 0),
+}));
+
+// ============ 初始化 ============
+async function init() {
+  const status = document.getElementById('status');
+  const setStatus = t => status.innerHTML = t;
+  try {
+    // 生命周期（3 组：鸡、鸭）
+    setStatus('加载养殖生命周期...');
+    for (const item of LIFECYCLE) {
+      const m = await loadGLB(item.path, item.pos, 0);
+      if (!stageModels.has(item.stage)) stageModels.set(item.stage, []);
+      stageModels.get(item.stage).push(m);
+    }
+    // 建筑升级链
+    setStatus('加载建筑升级链...');
+    for (const item of LEVELS) {
+      const m = await loadGLB(item.path, item.pos, 0);
+      levelModels.set(item.level, m);
+    }
+    // 季节树
+    setStatus('加载季节树...');
+    for (const item of SEASONS) {
+      try {
+        const m = await loadGLB(item.path, item.pos, 0);
+        treeModels.set(item.season, m);
+      } catch (e) {
+        console.warn('季节树缺失，跳过:', item.season, e.message);
+      }
+    }
+    // 初始状态
+    applyLifecycle('adult');
+    applyLevel(3);
+    applySeason('summer');
+    enableButtons();
+    setStatus('✅ 演示就绪 —— 点击按钮体验 <b>养殖生命周期</b> / <b>建筑升级</b> / <b>季节切换</b>');
+    document.getElementById('loading').style.display = 'none';
+  } catch (e) {
+    setStatus('❌ 加载失败: ' + e.message);
+    console.error(e);
+  }
+}
+
+function enableButtons() {
+  ['btnEgg','btnBaby','btnAdult','btnL1','btnL2','btnL3','btnL4','btnL5'].forEach(id => {
+    document.getElementById(id).disabled = false;
+  });
+}
+
+// ============ 状态应用 ============
+function applyLifecycle(stage) {
+  // 蛋显示 2 个，幼年显示 2 个，成年显示 2 个（鸭成年+鹅成年）
+  const visibleStages = stage === 'egg' ? ['egg','egg2']
+    : stage === 'baby' ? ['baby','baby2']
+    : ['adult','goose'];
+  for (const [key, models] of stageModels) {
+    const show = visibleStages.includes(key);
+    models.forEach(m => m.visible = show);
+  }
+  document.querySelectorAll('#panel .group:first-child .btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(stage === 'egg' ? 'btnEgg' : stage === 'baby' ? 'btnBaby' : 'btnAdult').classList.add('active');
+}
+
+function applyLevel(level) {
+  for (const [lv, m] of levelModels) m.visible = (lv === level);
+  document.querySelectorAll('#panel .group:nth-child(2) .btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`btnL${level}`).classList.add('active');
+}
+
+function applySeason(season) {
+  for (const [s, m] of treeModels) m.visible = (s === season);
+  // 地面也换色
+  const colors = { spring: 0x8BC34A, summer: 0x6AAB3A, autumn: 0xC9A24A, winter: 0xE8F2F8 };
+  ground.material.color.setHex(colors[season] || colors.summer);
+  document.querySelectorAll('#panel .group:nth-child(3) .btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`btn${season.charAt(0).toUpperCase()}${season.slice(1)}`).classList.add('active');
+}
+
+// ============ 按钮绑定 ============
+document.getElementById('btnEgg').onclick   = () => { state.lifecycleStage='egg';   applyLifecycle('egg'); };
+document.getElementById('btnBaby').onclick  = () => { state.lifecycleStage='baby';  applyLifecycle('baby'); };
+document.getElementById('btnAdult').onclick = () => { state.lifecycleStage='adult'; applyLifecycle('adult'); };
+[1,2,3,4,5].forEach(l => {
+  document.getElementById(`btnL${l}`).onclick = () => { state.buildingLevel=l; applyLevel(l); };
+});
+['spring','summer','autumn','winter'].forEach(s => {
+  document.getElementById(`btn${s.charAt(0).toUpperCase()}${s.slice(1)}`).onclick = () => { state.season=s; applySeason(s); };
+});
+
+// ============ 动画循环 ============
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+init();
+</script>
+</body>
+</html>
