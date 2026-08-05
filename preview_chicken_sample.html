@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>成年鸡样本对比 · 写实偏精致（V1 / V3a / V3b）</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { height:100%; }
+  body { background:#2F3E2E; color:#F5EFE0; font-family:system-ui,"Microsoft YaHei",sans-serif; display:flex; flex-direction:column; }
+  header { flex:0 0 auto; padding:10px 18px; background:rgba(20,30,20,.9); border-bottom:1px solid rgba(255,255,255,.12); display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  header h1 { font-size:15px; font-weight:600; white-space:nowrap; }
+  header .sub { font-size:12px; color:#A8BFA8; }
+  header .hint { font-size:12px; color:#C8D8C8; margin-left:auto; white-space:nowrap; }
+  main { flex:1; display:grid; grid-template-columns:repeat(4, 1fr); grid-template-rows:1fr 1fr; gap:10px; padding:10px; min-height:0; }
+  @media (max-width:1100px){ main { grid-template-columns:repeat(2,1fr); grid-template-rows:1fr 1fr 1fr 1fr; } }
+  .panel { position:relative; background:#3a4a3a; border:1px solid rgba(255,255,255,.14); border-radius:12px; overflow:hidden; min-height:220px; }
+  .panel canvas { display:block; width:100%; height:100%; }
+  .badge { position:absolute; top:8px; left:10px; padding:4px 10px; border-radius:14px; font-size:12px; font-weight:600; background:rgba(20,30,20,.78); border:1px solid rgba(255,255,255,.18); backdrop-filter:blur(4px); z-index:5; white-space:nowrap; }
+  .badge .tag { display:inline-block; margin-left:6px; padding:1px 7px; border-radius:9px; font-size:11px; font-weight:400; background:rgba(255,255,255,.14); }
+  .info { position:absolute; bottom:8px; left:10px; right:10px; display:flex; justify-content:space-between; gap:8px; font-size:11px; color:#C8D8C8; z-index:5; }
+  .info .chip { background:rgba(20,30,20,.75); padding:3px 9px; border-radius:8px; white-space:nowrap; }
+  .loading { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#8CBF8C; font-size:13px; z-index:4; background:rgba(30,40,30,.55); }
+  .loading.hidden { display:none; }
+  .fail { color:#E08A8A; }
+  #footer { flex:0 0 auto; padding:6px 18px; font-size:11px; color:#8CA88C; background:rgba(20,30,20,.6); border-top:1px solid rgba(255,255,255,.08); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🐔 成年鸡样本对比 · 写实偏精致</h1>
+  <span class="sub">左=旧程序化 · 右/下=多模态生成新样本（staging）</span>
+  <span class="hint">🖱 拖拽旋转 · 滚轮缩放 · 每格独立</span>
+</header>
+<main id="grid">
+  <div class="panel" id="p-old">
+    <div class="badge">旧 · 程序化卡通 <span class="tag">REF</span></div>
+    <div class="loading">加载中…</div>
+    <div class="info"><span class="chip" id="i-old-name">animal_chicken_brown.glb</span><span class="chip" id="i-old-tris">—</span></div>
+  </div>
+  <div class="panel" id="p-v1">
+    <div class="badge">V1 · 标准站姿 <span class="tag">主推</span></div>
+    <div class="loading">加载中…</div>
+    <div class="info"><span class="chip" id="i-v1-name">animal_chicken_brown_r.glb</span><span class="chip" id="i-v1-tris">—</span></div>
+  </div>
+  <div class="panel" id="p-v3a">
+    <div class="badge">V3a · 全写实 <span class="tag">写实度≈1.0</span></div>
+    <div class="loading">加载中…</div>
+    <div class="info"><span class="chip" id="i-v3a-name">animal_chicken_brown_r_hi.glb</span><span class="chip" id="i-v3a-tris">—</span></div>
+  </div>
+  <div class="panel" id="p-v3b">
+    <div class="badge">V3b · 游戏半写实 <span class="tag">写实度≈0.6</span></div>
+    <div class="loading">加载中…</div>
+    <div class="info"><span class="chip" id="i-v3b-name">animal_chicken_brown_r_game.glb</span><span class="chip" id="i-v3b-tris">—</span></div>
+  </div>
+</main>
+<div id="footer">⚠ 样本仅供档位验收，未写入 manifest；正式替换前不覆盖 assets/animals/animal_chicken_brown.glb。</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const PANELS = [
+  { id:'old', path:'assets/animals/animal_chicken_brown.glb',       label:'animal_chicken_brown.glb', trisEl:'i-old-tris' },
+  { id:'v1',  path:'assets/animals/staging/animal_chicken_brown_r.glb',        label:'animal_chicken_brown_r.glb', trisEl:'i-v1-tris' },
+  { id:'v3a', path:'assets/animals/staging/animal_chicken_brown_r_hi.glb',     label:'animal_chicken_brown_r_hi.glb', trisEl:'i-v3a-tris' },
+  { id:'v3b', path:'assets/animals/staging/animal_chicken_brown_r_game.glb',   label:'animal_chicken_brown_r_game.glb', trisEl:'i-v3b-tris' },
+];
+
+const loader = new GLTFLoader();
+
+function setupPanel(panelCfg) {
+  const panel = document.getElementById('p-' + panelCfg.id);
+  const canvas = document.createElement('canvas');
+  panel.appendChild(canvas);
+
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.0;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.shadowMap.enabled = true;
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xdfe6d8); // 明亮农场中性底
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+  const camera = new THREE.PerspectiveCamera(38, 1, 0.01, 100);
+  camera.position.set(1.1, 0.8, 1.4);
+
+  const controls = new OrbitControls(camera, canvas);
+  controls.target.set(0, 0.22, 0);
+  controls.enableDamping = true;
+  controls.autoRotate = true;
+  controls.autoRotateSpeed = 1.6;
+  controls.minDistance = 0.3;
+  controls.maxDistance = 6;
+  controls.update();
+
+  // 地面 + 网格 + 阴影
+  const grid = new THREE.GridHelper(2.4, 12, 0x8a9a7a, 0xa9b8a0);
+  grid.position.y = -0.001;
+  scene.add(grid);
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(6, 6),
+    new THREE.ShadowMaterial({ opacity: 0.18 })
+  );
+  ground.rotation.x = -Math.PI/2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  const hemi = new THREE.HemisphereLight(0xfff4e0, 0x6b7a5a, 0.75);
+  scene.add(hemi);
+  const dir = new THREE.DirectionalLight(0xfff2dd, 1.6);
+  dir.position.set(2.2, 3.2, 1.8);
+  dir.castShadow = true;
+  dir.shadow.mapSize.set(1024, 1024);
+  scene.add(dir);
+  const rim = new THREE.DirectionalLight(0xbfd8ff, 0.45); // 边缘光（spec §1.2 可选 0.2，此处略增以利展示）
+  rim.position.set(-2.0, 0.6, -1.6);
+  scene.add(rim);
+
+  let object = null;
+  const loadingEl = panel.querySelector('.loading');
+  const trisEl = document.getElementById(panelCfg.trisEl);
+
+  loader.load(panelCfg.path, (gltf) => {
+    object = gltf.scene;
+    scene.add(object);
+
+    // 计算 tris + 身高
+    let tris = 0;
+    let box = new THREE.Box3();
+    object.traverse((o) => {
+      if (o.isMesh) {
+        const g = o.geometry;
+        if (g.index) tris += g.index.count / 3;
+        else if (g.attributes.position) tris += g.attributes.position.count / 3;
+        box.expandByObject(o);
+      }
+    });
+    const h = box.max.y - box.min.y;
+    // 半透明假阴影便于贴地感
+    loadingEl.classList.add('hidden');
+    trisEl.textContent = `${Math.round(tris).toLocaleString()} tris · 高 ${h.toFixed(2)} m`;
+  }, undefined, (err) => {
+    console.error('load failed', panelCfg.path, err);
+    loadingEl.textContent = '加载失败（staging 文件缺失？）';
+    loadingEl.classList.add('fail');
+  });
+
+  function resize() {
+    const w = panel.clientWidth, h = panel.clientHeight;
+    if (w === 0 || h === 0) return;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
+  }
+  animate();
+}
+
+PANELS.forEach(setupPanel);
+</script>
+</body>
+</html>

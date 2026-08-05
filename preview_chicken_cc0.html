@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>成年鸡 CC0 半写实骨骼 · MAXDESIGN Chicken（walk / eat）</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { height:100%; }
+  body { background:#2F3E2E; color:#F5EFE0; font-family:system-ui,"Microsoft YaHei",sans-serif; display:flex; flex-direction:column; }
+  header { flex:0 0 auto; padding:10px 18px; background:rgba(20,30,20,.9); border-bottom:1px solid rgba(255,255,255,.12); display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  header h1 { font-size:15px; font-weight:600; }
+  header .sub { font-size:12px; color:#A8BFA8; }
+  header .state { margin-left:auto; font-size:12px; padding:4px 12px; border-radius:14px; background:rgba(255,255,255,.1); }
+  main { flex:1; display:flex; flex-direction:column; min-height:0; }
+  #viewer { flex:1; position:relative; min-height:320px; }
+  #viewer canvas { display:block; width:100%; height:100%; }
+  .loading { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#8CBF8C; font-size:14px; background:rgba(30,40,30,.5); z-index:3; }
+  .loading.hidden { display:none; }
+  .controls { flex:0 0 auto; display:flex; align-items:center; gap:10px; padding:12px 18px; background:rgba(20,30,20,.75); border-top:1px solid rgba(255,255,255,.1); flex-wrap:wrap; }
+  .controls button { background:#3a4a3a; color:#F5EFE0; border:1px solid #5a7a5a; border-radius:8px; padding:9px 18px; font-size:14px; cursor:pointer; }
+  .controls button:hover { background:#4a5f4a; }
+  .controls button.active { background:#6BAF4E; border-color:#8fce6f; color:#10240f; font-weight:600; }
+  .controls .meta { font-size:11px; color:#8CA88C; margin-left:auto; }
+  .clips { flex:0 0 auto; padding:8px 18px; font-size:12px; color:#C8D8C8; background:rgba(20,30,20,.5); border-top:1px solid rgba(255,255,255,.06); }
+  .clips .clip-chip { display:inline-block; margin:2px 6px 2px 0; padding:3px 10px; border-radius:12px; background:rgba(255,255,255,.12); }
+  .note { flex:0 0 auto; padding:6px 18px; font-size:11px; color:#8CA88C; background:rgba(20,30,20,.5); border-top:1px solid rgba(255,255,255,.06); }
+  #diag { position:fixed; right:10px; bottom:10px; max-width:460px; max-height:40vh; overflow:auto;
+          background:rgba(12,18,12,.92); border:1px solid rgba(255,255,255,.18); border-radius:8px;
+          padding:8px 10px; font:11px/1.5 Consolas,Menlo,monospace; color:#B8E0B8; z-index:20; white-space:pre-wrap; }
+  #status-bar { position:fixed; top:10px; right:10px; z-index:30;
+          background:rgba(12,22,12,.96); border:1.5px solid rgba(140,210,140,.6); border-radius:12px;
+          padding:10px 16px; font:bold 15px/1.7 Consolas,Menlo,monospace; color:#E8F5E8;
+          box-shadow:0 3px 14px rgba(0,0,0,.45); white-space:pre; min-width:300px; }
+  #status-bar .big { color:#7CE87C; font-size:20px; }
+  #status-bar .dim { color:#9FB89F; font-weight:normal; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🐔 成年鸡 CC0 半写实骨骼（MAXDESIGN）</h1>
+  <span class="sub" id="mode-tag">加载中…</span>
+  <span class="state" id="state">当前：停止</span>
+</header>
+<main>
+  <div id="viewer">
+    <div class="loading" id="loading">加载 CC0 半写实鸡模型…</div>
+  </div>
+  <div class="controls">
+    <button id="btn-walk">🚶 走动</button>
+    <button id="btn-eat">🍽 吃东西</button>
+    <button id="btn-full">🎞 完整动画</button>
+    <button id="btn-idle">⏹ 停止</button>
+    <span class="meta" id="meta">—</span>
+  </div>
+  <div class="clips" id="clips">动画 clip 列表：加载中…</div>
+  <div class="note">说明：Sketchfab CC0 模型 Chicken by MAXDESIGN-3D（CC-BY，商用可、需署名）。真骨骼蒙皮（41 bones）+ 原始 "Take 001" 组合动画（含站立 idle + 深度啄食）；eat = 从 Take 001 截取的啄食段（0.75s）；walk = 程序化骨骼动画（1.6s，驱动 Thigh/Calf/Head/rootJoint）。已对齐：身高 0.5m、脚底 y=0、面向 +Z。Attribution: MAXDESIGN-3D (Sketchfab, CC-BY).</div>
+  <pre id="diag">诊断：加载中…</pre>
+  <div id="status-bar">📐 加载中…</div>
+</main>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const MODEL = 'assets/animals/staging/animal_chicken_brown_cc0.glb';
+
+// ---------- 场景 ----------
+const viewer = document.getElementById('viewer');
+const canvas = document.createElement('canvas');
+viewer.appendChild(canvas);
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xdfe6d8);
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+const camera = new THREE.PerspectiveCamera(38, 1, 0.01, 100);
+camera.position.set(1.2, 0.85, 1.5);
+const controls = new OrbitControls(camera, canvas);
+controls.target.set(0, 0.22, 0);
+controls.enableDamping = true;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 1.2;
+controls.minDistance = 0.3;
+controls.maxDistance = 6;
+controls.update();
+
+const grid = new THREE.GridHelper(2.6, 13, 0x8a9a7a, 0xa9b8a0);
+grid.position.y = -0.001;
+scene.add(grid);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(6,6), new THREE.ShadowMaterial({ opacity: 0.16 }));
+ground.rotation.x = -Math.PI/2;
+ground.receiveShadow = true;
+scene.add(ground);
+const hemi = new THREE.HemisphereLight(0xfff4e0, 0x6b7a5a, 0.75);
+scene.add(hemi);
+const dir = new THREE.DirectionalLight(0xfff2dd, 1.6);
+dir.position.set(2.2, 3.2, 1.8);
+dir.castShadow = true;
+dir.shadow.mapSize.set(1024,1024);
+scene.add(dir);
+const rim = new THREE.DirectionalLight(0xbfd8ff, 0.45);
+rim.position.set(-2.0, 0.6, -1.6);
+scene.add(rim);
+
+// ---------- 加载 ----------
+const loader = new GLTFLoader();
+const loadingEl = document.getElementById('loading');
+const metaEl = document.getElementById('meta');
+const modeTagEl = document.getElementById('mode-tag');
+const clipsEl = document.getElementById('clips');
+
+let chicken = null, mixer = null;
+const actions = {};
+let matState = '未加载';
+let viewMode = 'OPAQUE';
+const savedMats = []; // 保存原材质（供 M 恢复）
+
+// ---- UI 诊断 ----
+const diagEl = document.getElementById('diag');
+const statusEl = document.getElementById('status-bar');
+const diagLines = [];
+function diag(msg) { diagLines.push(String(msg)); diagEl.textContent = diagLines.join('\n'); }
+function renderBBox() {
+  // 渲染级 bbox：对 skinned mesh 用 applyBoneTransform 手动变形
+  const min = new THREE.Vector3(Infinity, Infinity, Infinity);
+  const max = new THREE.Vector3(-Infinity, -Infinity, -Infinity);
+  chicken.updateMatrixWorld(true);
+  let found = false;
+  chicken.traverse(o => {
+    if (o.isSkinnedMesh) {
+      found = true;
+      o.updateMatrixWorld(true);
+      o.skeleton.update();
+      const pos = o.geometry.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        const v = o.applyBoneTransform(i, new THREE.Vector3());
+        min.min(v); max.max(v);
+      }
+    }
+  });
+  if (!found) {
+    const bb = new THREE.Box3().setFromObject(chicken);
+    min.copy(bb.min); max.copy(bb.max);
+  }
+  return { min, max };
+}
+function updateStatus() {
+  if (!chicken) { statusEl.textContent = '📐 未加载'; return; }
+  const { min, max } = renderBBox();
+  const h = max.y - min.y;
+  const cp = camera.position, ct = controls.target;
+  diag(`[bbox-live] height=${h.toFixed(3)}m min=(${min.x.toFixed(3)},${min.y.toFixed(3)},${min.z.toFixed(3)}) max=(${max.x.toFixed(3)},${max.y.toFixed(3)},${max.z.toFixed(3)})`);
+  diag(`[cam-live] pos=(${cp.x.toFixed(2)},${cp.y.toFixed(2)},${cp.z.toFixed(2)}) target=(${ct.x.toFixed(2)},${ct.y.toFixed(2)},${ct.z.toFixed(2)})`);
+  statusEl.innerHTML =
+    `📐 bbox height: <span class="big">${h.toFixed(3)}m</span>\n` +
+    `<span class="dim">📷 cam</span> (${cp.x.toFixed(2)},${cp.y.toFixed(2)},${cp.z.toFixed(2)}) → <span class="dim">target</span> (${ct.x.toFixed(2)},${ct.y.toFixed(2)},${ct.z.toFixed(2)})\n` +
+    `<span class="dim">🎨 mat</span> ${matState} · <span class="dim">🔍</span> ${viewMode}`;
+}
+
+// ---- 调试模式：W=wireframe 切换, M=基础红色材质, O=恢复 opaque ----
+function applyViewMode() {
+  if (!chicken) return;
+  chicken.traverse(o => {
+    if (!o.isMesh) return;
+    if (viewMode === 'WIREFRAME') {
+      o.material.wireframe = true;
+    } else if (viewMode === 'BASIC') {
+      o.material = new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true });
+    } else {
+      if (o.material.wireframe !== undefined) o.material.wireframe = false;
+      if (o.material.isMeshBasicMaterial) o.material = o.userData.origMat || o.material;
+    }
+  });
+  diag(`[mode] viewMode=${viewMode}`);
+}
+window.addEventListener('keydown', (e) => {
+  const k = e.key.toLowerCase();
+  if (k === 'w') { viewMode = viewMode === 'WIREFRAME' ? 'OPAQUE' : 'WIREFRAME'; applyViewMode(); }
+  else if (k === 'm') { viewMode = viewMode === 'BASIC' ? 'OPAQUE' : 'BASIC'; applyViewMode(); }
+  else if (k === 'o') { viewMode = 'OPAQUE'; applyViewMode(); }
+});
+diag('diag ready');
+
+loader.load(MODEL, (gltf) => {
+  chicken = gltf.scene;
+  scene.add(chicken);
+  diag(`[model] loaded ${MODEL}`);
+  diag(`[model] scene root: ${chicken.children.map(c => c.name + '(s=' + c.scale.x.toFixed(4) + ')').join(', ')}`);
+  // rootJoint TRS
+  const rj = chicken.getObjectByName('_rootJoint');
+  if (rj) diag(`[rootJoint] scale=(${rj.scale.x.toFixed(4)},${rj.scale.y.toFixed(4)},${rj.scale.z.toFixed(4)}) translation=(${rj.position.x.toFixed(4)},${rj.position.y.toFixed(4)},${rj.position.z.toFixed(4)})`);
+  // 渲染级 bbox
+  const { min, max } = renderBBox();
+  diag(`[bbox] min=(${min.x.toFixed(3)},${min.y.toFixed(3)},${min.z.toFixed(3)}) max=(${max.x.toFixed(3)},${max.y.toFixed(3)},${max.z.toFixed(3)}) height=${(max.y-min.y).toFixed(3)}`);
+
+  // ---- 材质强制 opaque（作者 alphaMode=BLEND 导致透明不可见） + 关视锥剔除 ----
+  let matFixed = 0;
+  chicken.traverse(o => {
+    if (o.isMesh) {
+      // 关键：skinned mesh 的 boundingSphere 基于 bind pose，与骨骼变形后位置不符
+      // → three 视锥剔除会误删 mesh → 必须关闭 frustumCulled
+      o.frustumCulled = false;
+      diag(`[mesh] ${o.name} frustumCulled=false`);
+    }
+    if (o.material && !Array.isArray(o.material)) {
+      const m = o.material;
+      const wasTrans = m.transparent;
+      m.transparent = false;
+      m.alphaTest = 0;
+      m.depthWrite = true;
+      m.side = THREE.FrontSide;
+      m.needsUpdate = true;
+      diag(`[mat] ${m.name || '(unnamed)'} → opaque (was transparent=${wasTrans})`);
+      matFixed++;
+    }
+  });
+  matState = matFixed > 0 ? `OPAQUE ×${matFixed}（强制）` : 'OPAQUE';
+  diag(`[mat] total forced opaque: ${matFixed}`);
+
+  // 统计
+  let meshes = 0, tris = 0, bones = 0;
+  chicken.traverse(o => {
+    if (o.isMesh) { meshes++; const g=o.geometry; tris += g.index?g.index.count/3:(g.attributes.position?g.attributes.position.count/3:0); }
+    if (o.isBone) bones++;
+  });
+  diag(`[model] meshes=${meshes} bones=${bones} tris=${Math.round(tris)}`);
+
+  mixer = new THREE.AnimationMixer(chicken);
+  const clipInfo = [];
+  for (const clip of gltf.animations) {
+    const action = mixer.clipAction(clip);
+    action.loop = THREE.LoopRepeat;
+    actions[clip.name] = action;
+    clipInfo.push(`${clip.name}（${clip.duration.toFixed(2)}s · ${clip.tracks.length}轨道）`);
+  }
+  diag(`[clips] ${gltf.animations.map(c => `${c.name}(${c.duration.toFixed(2)}s)`).join(', ')}`);
+  clipsEl.innerHTML = '动画 clip：' + clipInfo.map(c => `<span class="clip-chip">${c}</span>`).join('');
+  modeTagEl.textContent = `CC0 半写实骨骼 · skinned ${bones} bones · ${meshes} mesh · ${Math.round(tris)} tris`;
+  metaEl.textContent = `MAXDESIGN-3D Chicken (CC-BY) · 高 ${(max.y-min.y).toFixed(2)} m · 脚底 y=${min.y.toFixed(3)} · 面向 +Z`;
+  loadingEl.classList.add('hidden');
+  diag('[model] loaded ok');
+  updateStatus();
+}, undefined, (err) => {
+  loadingEl.textContent = '加载失败：' + (err && err.message ? err.message : 'staging 文件缺失？');
+  loadingEl.classList.add('fail');
+  diag('[model] LOAD ERROR: ' + (err && err.message ? err.message : String(err)));
+});
+
+function resize() {
+  const w = viewer.clientWidth, h = viewer.clientHeight;
+  if (w===0||h===0) return;
+  renderer.setSize(w,h,false);
+  camera.aspect = w/h;
+  camera.updateProjectionMatrix();
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ---------- 动画 ----------
+let current = null;
+const clock = new THREE.Clock();
+
+function playClip(name) {
+  if (!mixer) return;
+  if (current && actions[current]) actions[current].stop();
+  current = name;
+  if (actions[name]) {
+    actions[name].reset();
+    actions[name].play();
+  }
+  const map = { walk:'🚶 走动（循环）', eat:'🍽 吃东西（循环）', 'Take 001':'🎞 完整动画（循环）' };
+  stateEl.textContent = map[name] || '当前：停止';
+  btnWalk.classList.toggle('active', name === 'walk');
+  btnEat.classList.toggle('active', name === 'eat');
+  btnFull.classList.toggle('active', name === 'Take 001');
+  btnIdle.classList.toggle('active', name === 'idle' || !name);
+}
+function stopAll() {
+  if (!mixer) return;
+  if (current && actions[current]) actions[current].stop();
+  current = null;
+  stateEl.textContent = '当前：停止';
+  btnWalk.classList.toggle('active', false);
+  btnEat.classList.toggle('active', false);
+  btnFull.classList.toggle('active', false);
+  btnIdle.classList.toggle('active', true);
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  if (mixer) mixer.update(dt);
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+
+// 每秒刷新一次状态条 + 诊断（bbox/camera 实时）
+setInterval(() => {
+  updateStatus();
+}, 1000);
+
+const btnWalk = document.getElementById('btn-walk');
+const btnEat = document.getElementById('btn-eat');
+const btnFull = document.getElementById('btn-full');
+const btnIdle = document.getElementById('btn-idle');
+const stateEl = document.getElementById('state');
+btnWalk.addEventListener('click', () => playClip('walk'));
+btnEat.addEventListener('click', () => playClip('eat'));
+btnFull.addEventListener('click', () => playClip('Take 001'));
+btnIdle.addEventListener('click', () => stopAll());
+</script>
+</body>
+</html>

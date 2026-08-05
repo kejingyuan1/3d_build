@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>成年鸡 B 方案 · CC0 程序化骨骼（walk / eat）</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { height:100%; }
+  body { background:#2F3E2E; color:#F5EFE0; font-family:system-ui,"Microsoft YaHei",sans-serif; display:flex; flex-direction:column; }
+  header { flex:0 0 auto; padding:10px 18px; background:rgba(20,30,20,.9); border-bottom:1px solid rgba(255,255,255,.12); display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  header h1 { font-size:15px; font-weight:600; }
+  header .sub { font-size:12px; color:#A8BFA8; }
+  header .state { margin-left:auto; font-size:12px; padding:4px 12px; border-radius:14px; background:rgba(255,255,255,.1); }
+  main { flex:1; display:flex; flex-direction:column; min-height:0; }
+  #viewer { flex:1; position:relative; min-height:320px; }
+  #viewer canvas { display:block; width:100%; height:100%; }
+  .loading { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#8CBF8C; font-size:14px; background:rgba(30,40,30,.5); z-index:3; }
+  .loading.hidden { display:none; }
+  .controls { flex:0 0 auto; display:flex; align-items:center; gap:10px; padding:12px 18px; background:rgba(20,30,20,.75); border-top:1px solid rgba(255,255,255,.1); flex-wrap:wrap; }
+  .controls button { background:#3a4a3a; color:#F5EFE0; border:1px solid #5a7a5a; border-radius:8px; padding:9px 18px; font-size:14px; cursor:pointer; }
+  .controls button:hover { background:#4a5f4a; }
+  .controls button.active { background:#6BAF4E; border-color:#8fce6f; color:#10240f; font-weight:600; }
+  .controls .meta { font-size:11px; color:#8CA88C; margin-left:auto; }
+  .clips { flex:0 0 auto; padding:8px 18px; font-size:12px; color:#C8D8C8; background:rgba(20,30,20,.5); border-top:1px solid rgba(255,255,255,.06); }
+  .clips .clip-chip { display:inline-block; margin:2px 6px 2px 0; padding:3px 10px; border-radius:12px; background:rgba(255,255,255,.12); }
+  .note { flex:0 0 auto; padding:6px 18px; font-size:11px; color:#8CA88C; background:rgba(20,30,20,.5); border-top:1px solid rgba(255,255,255,.06); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🐔 成年鸡 B 方案 · CC0 程序化骨骼</h1>
+  <span class="sub" id="mode-tag">加载中…</span>
+  <span class="state" id="state">当前：停止</span>
+</header>
+<main>
+  <div id="viewer">
+    <div class="loading" id="loading">加载 CC0 鸡模型…</div>
+  </div>
+  <div class="controls">
+    <button id="btn-walk">🚶 走动</button>
+    <button id="btn-eat">🍽 吃东西</button>
+    <button id="btn-idle">⏹ 停止</button>
+    <span class="meta" id="meta">—</span>
+  </div>
+  <div class="clips" id="clips">动画 clip 列表：加载中…</div>
+  <div class="note">说明：模型 = poly.pizza CC0 blujay 鸡（CC-BY，Maf'j Alvarez），重涂游戏半写实棕鸡 PBR；程序化轻量骨骼（根/颈/喙/腿L/腿R）+ walk/eat 骨骼动画已烘焙进 GLB，用 AnimationMixer 直接播放。⚠ 轻量骨架为节点关节动画（非专业蒙皮），部件刚体挂载。</div>
+</main>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const MODEL = 'assets/animals/staging/animal_chicken_brown_b.glb';
+
+// ---------- 场景 ----------
+const viewer = document.getElementById('viewer');
+const canvas = document.createElement('canvas');
+viewer.appendChild(canvas);
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xdfe6d8);
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+const camera = new THREE.PerspectiveCamera(38, 1, 0.01, 100);
+camera.position.set(1.2, 0.85, 1.5);
+const controls = new OrbitControls(camera, canvas);
+controls.target.set(0, 0.22, 0);
+controls.enableDamping = true;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 1.2;
+controls.minDistance = 0.3;
+controls.maxDistance = 6;
+controls.update();
+
+const grid = new THREE.GridHelper(2.6, 13, 0x8a9a7a, 0xa9b8a0);
+grid.position.y = -0.001;
+scene.add(grid);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(6,6), new THREE.ShadowMaterial({ opacity: 0.16 }));
+ground.rotation.x = -Math.PI/2;
+ground.receiveShadow = true;
+scene.add(ground);
+const hemi = new THREE.HemisphereLight(0xfff4e0, 0x6b7a5a, 0.75);
+scene.add(hemi);
+const dir = new THREE.DirectionalLight(0xfff2dd, 1.6);
+dir.position.set(2.2, 3.2, 1.8);
+dir.castShadow = true;
+dir.shadow.mapSize.set(1024,1024);
+scene.add(dir);
+const rim = new THREE.DirectionalLight(0xbfd8ff, 0.45);
+rim.position.set(-2.0, 0.6, -1.6);
+scene.add(rim);
+
+// ---------- 加载 ----------
+const loader = new GLTFLoader();
+const loadingEl = document.getElementById('loading');
+const metaEl = document.getElementById('meta');
+const modeTagEl = document.getElementById('mode-tag');
+const clipsEl = document.getElementById('clips');
+
+let chicken = null, mixer = null;
+const actions = {};
+
+loader.load(MODEL, (gltf) => {
+  chicken = gltf.scene;
+  scene.add(chicken);
+
+  // 统计
+  let meshes = 0, tris = 0;
+  const bones = [];
+  chicken.traverse(o => {
+    if (o.isMesh) { meshes++; const g=o.geometry; tris += g.index?g.index.count/3:(g.attributes.position?g.attributes.position.count/3:0); }
+    if (/^bone_/.test(o.name)) bones.push(o.name);
+  });
+  const bb = new THREE.Box3().setFromObject(chicken);
+
+  mixer = new THREE.AnimationMixer(chicken);
+  const clipInfo = [];
+  for (const clip of gltf.animations) {
+    const action = mixer.clipAction(clip);
+    action.loop = THREE.LoopRepeat;
+    actions[clip.name] = action;
+    clipInfo.push(`${clip.name}（${clip.duration.toFixed(1)}s · ${clip.tracks.length}轨道）`);
+  }
+  clipsEl.innerHTML = '动画 clip：' + clipInfo.map(c => `<span class="clip-chip">${c}</span>`).join('');
+  modeTagEl.textContent = `CC0 程序化骨骼 · 骨骼 ${bones.length} · mesh ${meshes} · ${Math.round(tris)} tris`;
+  metaEl.textContent = `poly.pizza CC0 blujay 鸡（CC-BY）· 高 ${(bb.max.y-bb.min.y).toFixed(2)} m · 脚底 y=${bb.min.y.toFixed(3)}`;
+  loadingEl.classList.add('hidden');
+}, undefined, (err) => {
+  loadingEl.textContent = '加载失败（staging 文件缺失？）';
+  loadingEl.classList.add('fail');
+});
+
+function resize() {
+  const w = viewer.clientWidth, h = viewer.clientHeight;
+  if (w===0||h===0) return;
+  renderer.setSize(w,h,false);
+  camera.aspect = w/h;
+  camera.updateProjectionMatrix();
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ---------- 动画 ----------
+let current = null;
+const clock = new THREE.Clock();
+
+function playClip(name) {
+  if (!mixer) return;
+  if (current) { actions[current].stop(); }
+  current = name;
+  if (actions[name]) {
+    actions[name].reset();
+    actions[name].play();
+  }
+  stateEl.textContent = name === 'walk' ? '当前：🚶 走动（循环）' : name === 'eat' ? '当前：🍽 吃东西（循环）' : '当前：停止';
+  btnWalk.classList.toggle('active', name === 'walk');
+  btnEat.classList.toggle('active', name === 'eat');
+  btnIdle.classList.toggle('active', name === 'idle' || !name);
+}
+function stopAll() {
+  if (!mixer) return;
+  if (current && actions[current]) actions[current].stop();
+  current = null;
+  stateEl.textContent = '当前：停止';
+  btnWalk.classList.toggle('active', false);
+  btnEat.classList.toggle('active', false);
+  btnIdle.classList.toggle('active', true);
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  if (mixer) mixer.update(dt);
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+
+const btnWalk = document.getElementById('btn-walk');
+const btnEat = document.getElementById('btn-eat');
+const btnIdle = document.getElementById('btn-idle');
+const stateEl = document.getElementById('state');
+btnWalk.addEventListener('click', () => playClip('walk'));
+btnEat.addEventListener('click', () => playClip('eat'));
+btnIdle.addEventListener('click', () => stopAll());
+</script>
+</body>
+</html>

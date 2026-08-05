@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>成年鸡 V3b · 真关节动画验证（多部件 walk / eat）</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { height:100%; }
+  body { background:#2F3E2E; color:#F5EFE0; font-family:system-ui,"Microsoft YaHei",sans-serif; display:flex; flex-direction:column; }
+  header { flex:0 0 auto; padding:10px 18px; background:rgba(20,30,20,.9); border-bottom:1px solid rgba(255,255,255,.12); display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  header h1 { font-size:15px; font-weight:600; }
+  header .sub { font-size:12px; color:#A8BFA8; }
+  header .state { margin-left:auto; font-size:12px; padding:4px 12px; border-radius:14px; background:rgba(255,255,255,.1); }
+  main { flex:1; display:flex; flex-direction:column; min-height:0; }
+  #viewer { flex:1; position:relative; min-height:320px; }
+  #viewer canvas { display:block; width:100%; height:100%; }
+  .loading { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#8CBF8C; font-size:14px; background:rgba(30,40,30,.5); z-index:3; }
+  .loading.hidden { display:none; }
+  .controls { flex:0 0 auto; display:flex; align-items:center; gap:10px; padding:12px 18px; background:rgba(20,30,20,.75); border-top:1px solid rgba(255,255,255,.1); flex-wrap:wrap; }
+  .controls button { background:#3a4a3a; color:#F5EFE0; border:1px solid #5a7a5a; border-radius:8px; padding:9px 18px; font-size:14px; cursor:pointer; }
+  .controls button:hover { background:#4a5f4a; }
+  .controls button.active { background:#6BAF4E; border-color:#8fce6f; color:#10240f; font-weight:600; }
+  .controls .meta { font-size:11px; color:#8CA88C; margin-left:auto; }
+  .note { flex:0 0 auto; padding:6px 18px; font-size:11px; color:#8CA88C; background:rgba(20,30,20,.5); border-top:1px solid rgba(255,255,255,.06); }
+  #diag { position:fixed; right:10px; bottom:10px; max-width:420px; max-height:38vh; overflow:auto;
+          background:rgba(12,18,12,.92); border:1px solid rgba(255,255,255,.18); border-radius:8px;
+          padding:8px 10px; font:11px/1.5 Consolas,Menlo,monospace; color:#B8E0B8; z-index:20; white-space:pre-wrap; }
+  #diag.collapsed { display:none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🐔 V3b 成年鸡 · 真关节动画验证（多部件）</h1>
+  <span class="sub" id="mode-tag">多部件生成验证中…</span>
+  <span class="state" id="state">当前：停止</span>
+</header>
+<main>
+  <div id="viewer">
+    <div class="loading" id="loading">加载多部件 V3b 模型…</div>
+  </div>
+  <div class="controls">
+    <button id="btn-walk">🚶 走动</button>
+    <button id="btn-eat">🍽 吃东西</button>
+    <button id="btn-idle">⏹ 停止</button>
+    <span class="meta" id="meta">—</span>
+  </div>
+  <div class="note" id="note">说明：优先加载多部件生成模型（真关节动画：双腿交替摆动 + 头/喙独立张合）；若生成仍为单 mesh，自动回退整体刚体动画并提示。</div>
+  <pre id="diag">诊断：加载中…</pre>
+</main>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const MODEL_MULTI = 'assets/animals/staging/animal_chicken_brown_r_game_multimesh.glb'; // 多部件（方案A）
+const MODEL_SINGLE = 'assets/animals/staging/animal_chicken_brown_r_game.glb';          // 旧单mesh（fallback）
+
+// ---------- 场景 ----------
+const viewer = document.getElementById('viewer');
+const canvas = document.createElement('canvas');
+viewer.appendChild(canvas);
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xdfe6d8);
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+const camera = new THREE.PerspectiveCamera(38, 1, 0.01, 100);
+camera.position.set(1.2, 0.85, 1.5);
+
+const controls = new OrbitControls(camera, canvas);
+controls.target.set(0, 0.22, 0);
+controls.enableDamping = true;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 1.2;
+controls.minDistance = 0.3;
+controls.maxDistance = 6;
+controls.update();
+
+const grid = new THREE.GridHelper(2.6, 13, 0x8a9a7a, 0xa9b8a0);
+grid.position.y = -0.001;
+scene.add(grid);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(6,6), new THREE.ShadowMaterial({ opacity: 0.16 }));
+ground.rotation.x = -Math.PI/2;
+ground.receiveShadow = true;
+scene.add(ground);
+const hemi = new THREE.HemisphereLight(0xfff4e0, 0x6b7a5a, 0.75);
+scene.add(hemi);
+const dir = new THREE.DirectionalLight(0xfff2dd, 1.6);
+dir.position.set(2.2, 3.2, 1.8);
+dir.castShadow = true;
+dir.shadow.mapSize.set(1024,1024);
+scene.add(dir);
+const rim = new THREE.DirectionalLight(0xbfd8ff, 0.45);
+rim.position.set(-2.0, 0.6, -1.6);
+scene.add(rim);
+
+// ---------- 加载 ----------
+const loader = new GLTFLoader();
+const loadingEl = document.getElementById('loading');
+const metaEl = document.getElementById('meta');
+const modeTagEl = document.getElementById('mode-tag');
+const noteEl = document.getElementById('note');
+
+// 动画目标（rig 后填充）
+const rig = {
+  root: null,        // 根 Group（body 级动作：起伏/摇摆/俯仰/前伸）
+  head: null,        // head pivot
+  beak: null,        // beak pivot
+  legL: null,        // leg pivot
+  legR: null,        // leg pivot
+  hasParts: false,   // 是否为多部件真关节模式
+  tris: 0,
+  height: 0,
+};
+
+// ---- UI 诊断（用户可直接看到，不用开 DevTools） ----
+const diagEl = document.getElementById('diag');
+const diagLines = [];
+function diag(msg) {
+  diagLines.push(String(msg));
+  diagEl.textContent = diagLines.join('\n');
+}
+diag('diag ready');
+
+// ---- 部件分类（按 mesh 名，健壮匹配） ----
+function sideToken(n) {
+  // 结尾侧别 token: mesh_leg_L / mesh_leg_r / _left / _right
+  const m = n.match(/[_-](l|r|left|right)$/);
+  if (m) return (m[1] === 'l' || m[1] === 'left') ? 'L' : 'R';
+  return '';
+}
+function classify(name) {
+  const n = name.toLowerCase();
+  if (n.includes('body')) return 'body';
+  if (n.includes('beak') || n.includes('bill')) return 'beak';
+  if (n.includes('head') || n.includes('comb') || n.includes('wattle')) return 'head';
+  if (n.includes('leg') || n.includes('foot')) {
+    const s = sideToken(n);
+    if (s === 'L') return 'legL';
+    if (s === 'R') return 'legR';
+    if (n.includes('left')) return 'legL';
+    if (n.includes('right')) return 'legR';
+    return 'leg';
+  }
+  if (n.includes('wing')) {
+    const s = sideToken(n);
+    if (s === 'L') return 'wingL';
+    if (s === 'R') return 'wingR';
+    return 'wing';
+  }
+  if (n.includes('tail')) return 'tail';
+  return 'extra';
+}
+
+// ---- 把部件 mesh 节点挂到 pivot（pivot 在 hinge 世界坐标），pivot 挂到 parent ----
+function makePivot(parent, meshNode, hinge) {
+  const pivot = new THREE.Group();
+  pivot.name = 'pivot_' + (meshNode.name || 'part');
+  pivot.position.copy(hinge);
+  pivot.attach(meshNode);   // 保持 meshNode 世界位姿
+  parent.add(pivot);
+  return pivot;
+}
+
+function box3World(obj) {
+  const b = new THREE.Box3();
+  obj.updateWorldMatrix(true, false);
+  b.setFromObject(obj);
+  return b;
+}
+
+// ---- bbox 语义分类（兜底：name 被 GLTFLoader 改写/缺失时按几何识别） ----
+function classifyByBBox(o, namePart) {
+  const bb = box3World(o);
+  const cy = (bb.min.y + bb.max.y) / 2;
+  const cz = (bb.min.z + bb.max.z) / 2;
+  const cx = (bb.min.x + bb.max.x) / 2;
+  if (bb.max.y < 0.09) {
+    return cx < 0 ? 'legL' : 'legR';
+  }
+  if (cy > 0.36 && cz > 0.0) {
+    if (namePart !== 'head' && bb.min.z > 0.19 && bb.max.z > 0.20 && (bb.max.y - bb.min.y) < 0.2) {
+      return 'beak';
+    }
+    return 'head';
+  }
+  if (cz < -0.12) return 'tail';
+  if (cy > 0.36) return 'head';
+  return 'body';
+}
+
+// ---- 双通道分类：name 优先，extra/leg 无侧别时 bbox 兜底 ----
+function classifyDual(name, o) {
+  const byName = classify(name);
+  if (byName === 'legL' || byName === 'legR' || byName === 'head' || byName === 'beak' ||
+      byName === 'body' || byName === 'tail') {
+    return byName;
+  }
+  return classifyByBBox(o, byName);
+}
+
+// ---- 对位到统一骨架（body 为根，head→beak，legL/R 挂根） ----
+function rigParts(gltfScene) {
+  // 1. 收集部件节点
+  const nodes = [];
+  gltfScene.traverse(o => { if (o.isMesh) nodes.push(o); });
+  diag(`[rigParts] traverse nodes=${nodes.length}`);
+  const parts = { body: null, head: null, beak: null, legL: null, legR: null, others: [] };
+  let found = { body:false, head:false, beak:false, legL:false, legR:false };
+  for (const n of nodes) {
+    const byName = classify(n.name);
+    const c = classifyDual(n.name, n);
+    const bb = box3World(n);
+    const cy = (bb.min.y + bb.max.y) / 2, cz = (bb.min.z + bb.max.z) / 2;
+    diag(`  node name=${JSON.stringify(n.name)} -> byName=${byName} -> final=${c} (cy=${cy.toFixed(2)} cz=${cz.toFixed(2)})`);
+    if (c === 'body' && !parts.body) { parts.body = n; found.body = true; }
+    else if (c === 'head' && !parts.head) { parts.head = n; found.head = true; }
+    else if (c === 'beak' && !parts.beak) { parts.beak = n; found.beak = true; }
+    else if (c === 'legL' && !parts.legL) { parts.legL = n; found.legL = true; }
+    else if (c === 'legR' && !parts.legR) { parts.legR = n; found.legR = true; }
+    else parts.others.push(n);
+  }
+  diag(`[rigParts] found=${JSON.stringify(found)}`);
+  // 若 legL/legR 缺失但有无侧别 leg，用 bbox x 分左右
+  if (!found.legL || !found.legR) {
+    const legs = nodes.filter(n => {
+      const c = classifyDual(n.name, n);
+      return c === 'leg' || c === 'legL' || c === 'legR';
+    });
+    const unassigned = legs.filter(n => n !== parts.legL && n !== parts.legR);
+    for (const n of unassigned) {
+      const bb = box3World(n);
+      const cx = (bb.min.x + bb.max.x) / 2;
+      if (!found.legL && cx < 0) { parts.legL = n; found.legL = true; }
+      else if (!found.legR && cx > 0) { parts.legR = n; found.legR = true; }
+      else if (!found.legL) { parts.legL = n; found.legL = true; }
+      else if (!found.legR) { parts.legR = n; found.legR = true; }
+    }
+  }
+  const body = parts.body || gltfScene;
+  // body mesh 若存在则直接挂根（其余 already in scene）
+  // 2. 建根 Group：把 body 直接作为根的子级，其他部件挂到 body 的 pivot
+  const root = new THREE.Group();
+  root.name = 'chicken_rig';
+  // body 直接 attach 到 root（保持位姿）
+  if (parts.body) root.attach(parts.body);
+  // 其余非 body 部件节点：attach 到 root（先整体归位）
+  for (const n of nodes) {
+    if (n !== parts.body && n.parent) {
+      // 避免 attach 重复：若已作为 parts.body 子级则跳过（此处 body 无子级，安全）
+    }
+  }
+  // 其他部件先挂 root
+  const attached = new Set([parts.body]);
+  for (const n of nodes) {
+    if (!attached.has(n) && n !== parts.body) {
+      root.attach(n);
+      attached.add(n);
+    }
+  }
+  // 3. 计算铰链并建 pivot
+  // head pivot：头底部（颈连接）
+  if (parts.head) {
+    const bb = box3World(parts.head);
+    const hinge = new THREE.Vector3((bb.min.x+bb.max.x)/2, bb.min.y, (bb.min.z+bb.max.z)/2);
+    rig.head = makePivot(root, parts.head, hinge);
+  }
+  // beak pivot：喙根（靠近 head 一侧）
+  if (parts.beak) {
+    const bb = box3World(parts.beak);
+    let z = (bb.min.z+bb.max.z)/2;
+    if (rig.head) {
+      const hb = new THREE.Box3().setFromObject(rig.head);
+      z = (hb.min.z + hb.max.z) / 2 > z ? bb.max.z : bb.min.z;
+    }
+    const hinge = new THREE.Vector3((bb.min.x+bb.max.x)/2, (bb.min.y+bb.max.y)/2, z);
+    const bp = makePivot(root, parts.beak, hinge);
+    // 若 head pivot 存在，把 beak pivot 挂到 head pivot 下（随头动）
+    if (rig.head) rig.head.attach(bp);
+    else rig.beak = bp;
+  }
+  // leg pivot：腿顶部（髋）
+  if (parts.legL) {
+    const bb = box3World(parts.legL);
+    const hinge = new THREE.Vector3((bb.min.x+bb.max.x)/2, bb.max.y, (bb.min.z+bb.max.z)/2);
+    rig.legL = makePivot(root, parts.legL, hinge);
+  }
+  if (parts.legR) {
+    const bb = box3World(parts.legR);
+    const hinge = new THREE.Vector3((bb.min.x+bb.max.x)/2, bb.max.y, (bb.min.z+bb.max.z)/2);
+    rig.legR = makePivot(root, parts.legR, hinge);
+  }
+  rig.root = root;
+  rig.hasParts = found.body && (found.legL || found.legR);
+  return { root, found, hasParts: found.body && (found.legL || found.legR) };
+}
+
+// ---- 加载主模型（多部件）；失败/单mesh 则 fallback 旧模型 ----
+function loadModel(path, isMulti) {
+  return new Promise((resolve, reject) => {
+    loader.load(path, (gltf) => {
+      const found = { multi:false, names:[] };
+      gltf.scene.traverse(o => { if (o.isMesh) found.names.push(o.name); });
+      const meshCount = found.names.length;
+      resolve({ gltf, meshCount, names: found.names });
+    }, undefined, reject);
+  });
+}
+
+let chicken = null;
+
+async function boot() {
+  try {
+    diag(`[boot] loading MODEL_MULTI=${MODEL_MULTI}`);
+    const res = await loadModel(MODEL_MULTI, true);
+    diag(`[boot] loaded meshCount=${res.meshCount} names=${JSON.stringify(res.names)}`);
+    const { rigged, names, meshCount } = (() => {
+      const r = rigParts(res.gltf.scene);
+      return { rigged: r, names: res.names, meshCount: res.meshCount };
+    })();
+    diag(`[boot] rigged.hasParts=${rigged.hasParts}`);
+    if (rigged.hasParts) {
+      chicken = rigged.root;
+      scene.add(chicken);
+      rig.root = chicken;
+      rig.hasParts = true;
+      modeTagEl.textContent = `多部件真关节（mesh×${meshCount}）`;
+      noteEl.textContent = `部件名：${names.join(' / ')} → 对位：body/head/beak/leg 真关节动画（walk=双腿交替+头点；eat=头俯+喙张合）。`;
+      // 统计
+      const bb = new THREE.Box3().setFromObject(chicken);
+      rig.height = bb.max.y - bb.min.y;
+      chicken.traverse(o => { if (o.isMesh) { const g=o.geometry; rig.tris += g.index?g.index.count/3:(g.attributes.position?g.attributes.position.count/3:0); } });
+      metaEl.textContent = `多部件模型 · ${Math.round(rig.tris).toLocaleString()} tris · 高 ${rig.height.toFixed(2)} m`;
+      loadingEl.classList.add('hidden');
+      diag(`[boot] => 真关节模式 OK`);
+      return;
+    }
+    // 多 mesh 但无关键部件 → 放弃，走 fallback
+    diag('[boot] WARN: no key parts found -> fallback');
+    console.warn('multi-mesh present but no key parts found:', names);
+  } catch (e) {
+    diag('[boot] ERROR: ' + (e && e.message ? e.message : String(e)));
+    console.warn('multi-mesh load failed:', e.message);
+  }
+  // fallback: 旧单 mesh 整体动画
+  try {
+    diag('[boot] fallback: loading MODEL_SINGLE');
+    const res = await loadModel(MODEL_SINGLE, false);
+    const wrap = new THREE.Group();
+    wrap.add(res.gltf.scene);
+    scene.add(wrap);
+    chicken = wrap;
+    rig.root = wrap;
+    rig.hasParts = false;
+    rig.tris = 0;
+    res.gltf.scene.traverse(o => { if (o.isMesh) { const g=o.geometry; rig.tris += g.index?g.index.count/3:(g.attributes.position?g.attributes.position.count/3:0); } });
+    const bb = new THREE.Box3().setFromObject(wrap);
+    rig.height = bb.max.y - bb.min.y;
+    modeTagEl.textContent = '⚠ 回退：旧单 mesh 整体动画';
+    noteEl.textContent = '多部件生成未产生可对位部件（或加载失败），已回退旧单 mesh 整体刚体动画。右下角诊断框见原因。';
+    metaEl.textContent = `单 mesh 模型 · ${Math.round(rig.tris).toLocaleString()} tris · 高 ${rig.height.toFixed(2)} m`;
+    loadingEl.classList.add('hidden');
+    diag('[boot] fallback loaded');
+  } catch (e2) {
+    loadingEl.textContent = '模型加载失败（staging 文件缺失？）';
+    loadingEl.classList.add('fail');
+    diag('[boot] fallback ERROR: ' + (e2 && e2.message ? e2.message : String(e2)));
+  }
+}
+boot();
+
+function resize() {
+  const w = viewer.clientWidth, h = viewer.clientHeight;
+  if (w===0||h===0) return;
+  renderer.setSize(w,h,false);
+  camera.aspect = w/h;
+  camera.updateProjectionMatrix();
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ---------- 动画 ----------
+let animMode = 'idle';
+const clock = new THREE.Clock();
+let elapsed = 0;
+const WALK_T = 1.6;
+const EAT_T = 1.4;
+
+function applyAnim(dt) {
+  if (!chicken) return;
+  const t = elapsed;
+  // 复位
+  if (rig.root) { rig.root.position.set(0,0,0); rig.root.rotation.set(0,0,0); }
+  if (rig.legL) rig.legL.rotation.set(0,0,0);
+  if (rig.legR) rig.legR.rotation.set(0,0,0);
+  if (rig.head) rig.head.rotation.set(0,0,0);
+  if (rig.beak) rig.beak.rotation.set(0,0,0);
+
+  if (animMode === 'walk') {
+    // 双腿交替（真关节）
+    if (rig.hasParts) {
+      const swing = Math.sin(t * (2*Math.PI/WALK_T)) * 0.55;
+      if (rig.legL) rig.legL.rotation.x = swing;
+      if (rig.legR) rig.legR.rotation.x = -swing;
+      if (rig.root) {
+        rig.root.position.y = Math.abs(Math.sin(t*(2*Math.PI/WALK_T))) * 0.035 + 0.01;
+        rig.root.rotation.z = Math.sin(t*(2*Math.PI/WALK_T)) * 0.045;
+        rig.root.position.z = Math.sin(t*(Math.PI/WALK_T)) * 0.12;
+      }
+      if (rig.head) rig.head.rotation.x = 0.05 * Math.sin(t*(2*Math.PI/WALK_T) + 0.6);
+    } else {
+      // 单 mesh fallback：整体刚体
+      if (rig.root) {
+        rig.root.position.z = Math.sin(t * (Math.PI / WALK_T)) * 0.16;
+        rig.root.position.y = Math.abs(Math.sin(t * (2*Math.PI / WALK_T))) * 0.035 + 0.008;
+        rig.root.rotation.z = Math.sin(t * (2*Math.PI / WALK_T)) * 0.055;
+        rig.root.rotation.x = Math.cos(t * (2*Math.PI / WALK_T)) * 0.045;
+      }
+    }
+  } else if (animMode === 'eat') {
+    const env = Math.sin(t * (Math.PI / EAT_T)) ** 2;
+    if (rig.hasParts) {
+      // head 下俯 + beak 张合 + body 前伸
+      if (rig.head) rig.head.rotation.x = -0.55 * env;
+      if (rig.beak) rig.beak.rotation.x = 0.35 * Math.sin(t * (4*Math.PI/EAT_T)) * env;
+      if (rig.root) {
+        rig.root.position.z = 0.04 * env;
+        rig.root.position.y = 0.012 * env;
+      }
+    } else {
+      if (rig.root) {
+        rig.root.rotation.x = -0.32 * env - 0.06 * Math.sin(t * (4 * Math.PI / EAT_T)) * env;
+        rig.root.position.z = 0.035 * env;
+        rig.root.position.y = 0.01 * env;
+      }
+    }
+  }
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  if (animMode !== 'idle') elapsed += dt;
+  else elapsed = 0;
+  applyAnim(dt);
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+
+// ---------- 按钮 ----------
+const btnWalk = document.getElementById('btn-walk');
+const btnEat = document.getElementById('btn-eat');
+const btnIdle = document.getElementById('btn-idle');
+const stateEl = document.getElementById('state');
+function setMode(mode) {
+  animMode = mode;
+  elapsed = 0;
+  btnWalk.classList.toggle('active', mode==='walk');
+  btnEat.classList.toggle('active', mode==='eat');
+  btnIdle.classList.toggle('active', mode==='idle');
+  stateEl.textContent = mode==='walk' ? '当前：🚶 走动（循环）'
+    : mode==='eat' ? '当前：🍽 吃东西（循环）' : '当前：停止';
+}
+btnWalk.addEventListener('click', () => setMode('walk'));
+btnEat.addEventListener('click', () => setMode('eat'));
+btnIdle.addEventListener('click', () => setMode('idle'));
+</script>
+</body>
+</html>
