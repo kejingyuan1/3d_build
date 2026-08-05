@@ -3075,6 +3075,292 @@
         }
       },
       "loadPriority": "lazy"
+    },
+    {
+      "assetId": "lifecycle_duck_egg",
+      "designId": "LC-01",
+      "path": "lifecycle/lifecycle_duck_egg.glb",
+      "category": "animal",
+      "priority": "P0",
+      "name": "鸭蛋",
+      "desc": "养殖生命周期：鸭蛋",
+      "source": "procedural",
+      "collision": {
+        "type": "dynamic",
+        "shape": "sphere",
+        "params": {
+          "r": 0.05
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "lifecycle/lifecycle_duck_egg.glb"
+        }
+      ],
+      "sizeKB": 35.2,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "lifecycle_duck_baby",
+      "designId": "LC-02",
+      "path": "lifecycle/lifecycle_duck_baby.glb",
+      "category": "animal",
+      "priority": "P0",
+      "name": "小鸭（幼年）",
+      "desc": "养殖生命周期：小鸭（幼年）",
+      "source": "procedural",
+      "collision": {
+        "type": "dynamic",
+        "shape": "sphere",
+        "params": {
+          "r": 0.18
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "lifecycle/lifecycle_duck_baby.glb"
+        }
+      ],
+      "sizeKB": 134.1,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "lifecycle_duck_adult",
+      "designId": "LC-03",
+      "path": "lifecycle/lifecycle_duck_adult.glb",
+      "category": "animal",
+      "priority": "P0",
+      "name": "成年鸭",
+      "desc": "养殖生命周期：成年鸭",
+      "source": "procedural",
+      "collision": {
+        "type": "dynamic",
+        "shape": "sphere",
+        "params": {
+          "r": 0.3
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "lifecycle/lifecycle_duck_adult.glb"
+        }
+      ],
+      "sizeKB": 85.7,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "lifecycle_goose_egg",
+      "designId": "LC-04",
+      "path": "lifecycle/lifecycle_goose_egg.glb",
+      "category": "animal",
+      "priority": "P0",
+      "name": "鹅蛋",
+      "desc": "养殖生命周期：鹅蛋",
+      "source": "procedural",
+      "collision": {
+        "type": "dynamic",
+        "shape": "sphere",
+        "params": {
+          "r": 0.055
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "lifecycle/lifecycle_goose_egg.glb"
+        }
+      ],
+      "sizeKB": 35.2,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "lifecycle_goose_baby",
+      "designId": "LC-05",
+      "path": "lifecycle/lifecycle_goose_baby.glb",
+      "category": "animal",
+      "priority": "P0",
+      "name": "小鹅（幼年）",
+      "desc": "养殖生命周期：小鹅（幼年）",
+      "source": "procedural",
+      "collision": {
+        "type": "dynamic",
+        "shape": "sphere",
+        "params": {
+          "r": 0.2
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "lifecycle/lifecycle_goose_baby.glb"
+        }
+      ],
+      "sizeKB": 134.1,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "lifecycle_goose_adult",
+      "designId": "LC-06",
+      "path": "lifecycle/lifecycle_goose_adult.glb",
+      "category": "animal",
+      "priority": "P0",
+      "name": "成年鹅",
+      "desc": "养殖生命周期：成年鹅",
+      "source": "procedural",
+      "collision": {
+        "type": "dynamic",
+        "shape": "sphere",
+        "params": {
+          "r": 0.36
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "lifecycle/lifecycle_goose_adult.glb"
+        }
+      ],
+      "sizeKB": 85.7,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "lifecycle_chicken_baby",
+      "designId": "LC-07",
+      "path": "lifecycle/lifecycle_chicken_baby.glb",
+      "category": "animal",
+      "priority": "P0",
+      "name": "小鸡（幼年）",
+      "desc": "养殖生命周期：小鸡（幼年）",
+      "source": "procedural",
+      "collision": {
+        "type": "dynamic",
+        "shape": "sphere",
+        "params": {
+          "r": 0.16
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "lifecycle/lifecycle_chicken_baby.glb"
+        }
+      ],
+      "sizeKB": 163.1,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "lifecycle_chicken_egg_brown",
+      "designId": "LC-08",
+      "path": "lifecycle/lifecycle_chicken_egg_brown.glb",
+      "category": "animal",
+      "priority": "P0",
+      "name": "褐壳鸡蛋",
+      "desc": "养殖生命周期：褐壳鸡蛋",
+      "source": "procedural",
+      "collision": {
+        "type": "dynamic",
+        "shape": "sphere",
+        "params": {
+          "r": 0.04
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "lifecycle/lifecycle_chicken_egg_brown.glb"
+        }
+      ],
+      "sizeKB": 35.2,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "lifecycle_cow_calf",
+      "designId": "LC-09",
+      "path": "lifecycle/lifecycle_cow_calf.glb",
+      "category": "animal",
+      "priority": "P0",
+      "name": "牛犊（幼年）",
+      "desc": "养殖生命周期：牛犊（幼年）",
+      "source": "procedural",
+      "collision": {
+        "type": "dynamic",
+        "shape": "sphere",
+        "params": {
+          "r": 0.42
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "lifecycle/lifecycle_cow_calf.glb"
+        }
+      ],
+      "sizeKB": 134.6,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "lifecycle_sheep_lamb",
+      "designId": "LC-10",
+      "path": "lifecycle/lifecycle_sheep_lamb.glb",
+      "category": "animal",
+      "priority": "P0",
+      "name": "羊羔（幼年）",
+      "desc": "养殖生命周期：羊羔（幼年）",
+      "source": "procedural",
+      "collision": {
+        "type": "dynamic",
+        "shape": "sphere",
+        "params": {
+          "r": 0.31
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "lifecycle/lifecycle_sheep_lamb.glb"
+        }
+      ],
+      "sizeKB": 139.2,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "lifecycle_pig_piglet",
+      "designId": "LC-11",
+      "path": "lifecycle/lifecycle_pig_piglet.glb",
+      "category": "animal",
+      "priority": "P0",
+      "name": "猪仔（幼年）",
+      "desc": "养殖生命周期：猪仔（幼年）",
+      "source": "procedural",
+      "collision": {
+        "type": "dynamic",
+        "shape": "sphere",
+        "params": {
+          "r": 0.23
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "lifecycle/lifecycle_pig_piglet.glb"
+        }
+      ],
+      "sizeKB": 107.2,
+      "loadPriority": 0
     }
   ]
 }

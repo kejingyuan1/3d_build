@@ -37,7 +37,8 @@
 { "imports": { "three": "https://unpkg.com/three@0.170.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/" } }
 </script>
 <!-- 内嵌 manifest（避免 fetch 失败） -->
-<script id="manifest-data" type="application/json">{
+<script id="manifest-data" type="application/json">
+{
   "schemaVersion": 1,
   "assets": [
     {
@@ -1009,9 +1010,120 @@
       "name": "Quaternius 鲸鱼(动画)",
       "designId": "QAN",
       "source": "cc0_quaternius_animated"
+    },
+    {
+      "assetId": "lifecycle_duck_egg",
+      "designId": "LC-01",
+      "path": "assets/lifecycle/lifecycle_duck_egg.glb",
+      "category": "animal",
+      "priority": "P0",
+      "name": "鸭蛋",
+      "desc": "养殖生命周期：鸭蛋",
+      "source": "procedural"
+    },
+    {
+      "assetId": "lifecycle_duck_baby",
+      "designId": "LC-02",
+      "path": "assets/lifecycle/lifecycle_duck_baby.glb",
+      "category": "animal",
+      "priority": "P0",
+      "name": "小鸭（幼年）",
+      "desc": "养殖生命周期：小鸭（幼年）",
+      "source": "procedural"
+    },
+    {
+      "assetId": "lifecycle_duck_adult",
+      "designId": "LC-03",
+      "path": "assets/lifecycle/lifecycle_duck_adult.glb",
+      "category": "animal",
+      "priority": "P0",
+      "name": "成年鸭",
+      "desc": "养殖生命周期：成年鸭",
+      "source": "procedural"
+    },
+    {
+      "assetId": "lifecycle_goose_egg",
+      "designId": "LC-04",
+      "path": "assets/lifecycle/lifecycle_goose_egg.glb",
+      "category": "animal",
+      "priority": "P0",
+      "name": "鹅蛋",
+      "desc": "养殖生命周期：鹅蛋",
+      "source": "procedural"
+    },
+    {
+      "assetId": "lifecycle_goose_baby",
+      "designId": "LC-05",
+      "path": "assets/lifecycle/lifecycle_goose_baby.glb",
+      "category": "animal",
+      "priority": "P0",
+      "name": "小鹅（幼年）",
+      "desc": "养殖生命周期：小鹅（幼年）",
+      "source": "procedural"
+    },
+    {
+      "assetId": "lifecycle_goose_adult",
+      "designId": "LC-06",
+      "path": "assets/lifecycle/lifecycle_goose_adult.glb",
+      "category": "animal",
+      "priority": "P0",
+      "name": "成年鹅",
+      "desc": "养殖生命周期：成年鹅",
+      "source": "procedural"
+    },
+    {
+      "assetId": "lifecycle_chicken_baby",
+      "designId": "LC-07",
+      "path": "assets/lifecycle/lifecycle_chicken_baby.glb",
+      "category": "animal",
+      "priority": "P0",
+      "name": "小鸡（幼年）",
+      "desc": "养殖生命周期：小鸡（幼年）",
+      "source": "procedural"
+    },
+    {
+      "assetId": "lifecycle_chicken_egg_brown",
+      "designId": "LC-08",
+      "path": "assets/lifecycle/lifecycle_chicken_egg_brown.glb",
+      "category": "animal",
+      "priority": "P0",
+      "name": "褐壳鸡蛋",
+      "desc": "养殖生命周期：褐壳鸡蛋",
+      "source": "procedural"
+    },
+    {
+      "assetId": "lifecycle_cow_calf",
+      "designId": "LC-09",
+      "path": "assets/lifecycle/lifecycle_cow_calf.glb",
+      "category": "animal",
+      "priority": "P0",
+      "name": "牛犊（幼年）",
+      "desc": "养殖生命周期：牛犊（幼年）",
+      "source": "procedural"
+    },
+    {
+      "assetId": "lifecycle_sheep_lamb",
+      "designId": "LC-10",
+      "path": "assets/lifecycle/lifecycle_sheep_lamb.glb",
+      "category": "animal",
+      "priority": "P0",
+      "name": "羊羔（幼年）",
+      "desc": "养殖生命周期：羊羔（幼年）",
+      "source": "procedural"
+    },
+    {
+      "assetId": "lifecycle_pig_piglet",
+      "designId": "LC-11",
+      "path": "assets/lifecycle/lifecycle_pig_piglet.glb",
+      "category": "animal",
+      "priority": "P0",
+      "name": "猪仔（幼年）",
+      "desc": "养殖生命周期：猪仔（幼年）",
+      "source": "procedural"
     }
   ]
-}</script>
+}
+</script>
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -1155,6 +1267,19 @@ const LAYOUT = [
   [16, -10, 0, 'building_upgrade_l3', 'building'],
   [16, -13, 0, 'building_upgrade_l4', 'building'],
   [16, -16, 0, 'building_upgrade_l5', 'building'],
+
+  // 养殖生命周期（蛋→幼年→成熟，z=10 行）
+  [-8.0, 10, 0, 'lifecycle_duck_egg', 'animal'],
+  [-6.4, 10, 0, 'lifecycle_duck_baby', 'animal'],
+  [-4.8, 10, 0, 'lifecycle_duck_adult', 'animal'],
+  [-3.2, 10, 0, 'lifecycle_goose_egg', 'animal'],
+  [-1.6, 10, 0, 'lifecycle_goose_baby', 'animal'],
+  [0.0, 10, 0, 'lifecycle_goose_adult', 'animal'],
+  [1.6, 10, 0, 'lifecycle_chicken_baby', 'animal'],
+  [3.2, 10, 0, 'lifecycle_chicken_egg_brown', 'animal'],
+  [4.8, 10, 0, 'lifecycle_cow_calf', 'animal'],
+  [6.4, 10, 0, 'lifecycle_sheep_lamb', 'animal'],
+  [8.0, 10, 0, 'lifecycle_pig_piglet', 'animal'],
 ];
 
 // 农舍室内家具（相对农舍坐标摆放，农舍在 (-6,-4) 旋转 PI/2）

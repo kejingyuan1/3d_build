@@ -12,6 +12,10 @@ _test*.glb
 _tex_sheet.png
 _test.glb
 _test_tex.glb
+_py_*
+_tmp_*
+_*_out.txt
+_lc_verify_out.txt
 
 # 验证截图（过程产物）
 verify_*.png
