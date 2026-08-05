@@ -2741,6 +2741,340 @@
           }
         ]
       }
+    },
+    {
+      "assetId": "anim_quaternius_farm_Cow",
+      "designId": "QAN-01",
+      "path": "assets/quaternius_animated/farm_Cow_animated.glb",
+      "category": "animal",
+      "priority": "P1",
+      "name": "Quaternius 牛(动画)",
+      "sizeKB": 521.0,
+      "source": "cc0_quaternius_animated",
+      "license": "CC0",
+      "attribution": "Quaternius (Animated Farm/Animals Pack, FBX 转骨骼动画)",
+      "animations": {
+        "count": 6,
+        "names": [
+          "Cow_anim0",
+          "Cow_anim1",
+          "Cow_anim2",
+          "Cow_anim3",
+          "Cow_anim4",
+          "Cow_anim5"
+        ]
+      },
+      "collision": {
+        "type": "dynamic",
+        "shape": "sphere",
+        "params": {
+          "radius": 0.5
+        }
+      },
+      "loadPriority": "lazy"
+    },
+    {
+      "assetId": "anim_quaternius_farm_Horse",
+      "designId": "QAN-02",
+      "path": "assets/quaternius_animated/farm_Horse_animated.glb",
+      "category": "animal",
+      "priority": "P1",
+      "name": "Quaternius 马(动画)",
+      "sizeKB": 476.7,
+      "source": "cc0_quaternius_animated",
+      "license": "CC0",
+      "attribution": "Quaternius (Animated Farm/Animals Pack, FBX 转骨骼动画)",
+      "animations": {
+        "count": 6,
+        "names": [
+          "Horse_anim0",
+          "Horse_anim1",
+          "Horse_anim2",
+          "Horse_anim3",
+          "Horse_anim4",
+          "Horse_anim5"
+        ]
+      },
+      "collision": {
+        "type": "dynamic",
+        "shape": "sphere",
+        "params": {
+          "radius": 0.5
+        }
+      },
+      "loadPriority": "lazy"
+    },
+    {
+      "assetId": "anim_quaternius_farm_Llama",
+      "designId": "QAN-03",
+      "path": "assets/quaternius_animated/farm_Llama_animated.glb",
+      "category": "animal",
+      "priority": "P1",
+      "name": "Quaternius 羊驼(动画)",
+      "sizeKB": 257.2,
+      "source": "cc0_quaternius_animated",
+      "license": "CC0",
+      "attribution": "Quaternius (Animated Farm/Animals Pack, FBX 转骨骼动画)",
+      "animations": {
+        "count": 2,
+        "names": [
+          "Llama_anim0",
+          "Llama_anim1"
+        ]
+      },
+      "collision": {
+        "type": "dynamic",
+        "shape": "sphere",
+        "params": {
+          "radius": 0.5
+        }
+      },
+      "loadPriority": "lazy"
+    },
+    {
+      "assetId": "anim_quaternius_farm_Pig",
+      "designId": "QAN-04",
+      "path": "assets/quaternius_animated/farm_Pig_animated.glb",
+      "category": "animal",
+      "priority": "P1",
+      "name": "Quaternius 猪(动画)",
+      "sizeKB": 227.4,
+      "source": "cc0_quaternius_animated",
+      "license": "CC0",
+      "attribution": "Quaternius (Animated Farm/Animals Pack, FBX 转骨骼动画)",
+      "animations": {
+        "count": 2,
+        "names": [
+          "Pig_anim0",
+          "Pig_anim1"
+        ]
+      },
+      "collision": {
+        "type": "dynamic",
+        "shape": "sphere",
+        "params": {
+          "radius": 0.5
+        }
+      },
+      "loadPriority": "lazy"
+    },
+    {
+      "assetId": "anim_quaternius_farm_Pug",
+      "designId": "QAN-05",
+      "path": "assets/quaternius_animated/farm_Pug_animated.glb",
+      "category": "animal",
+      "priority": "P1",
+      "name": "Quaternius 哈巴狗(动画)",
+      "sizeKB": 222.9,
+      "source": "cc0_quaternius_animated",
+      "license": "CC0",
+      "attribution": "Quaternius (Animated Farm/Animals Pack, FBX 转骨骼动画)",
+      "animations": {
+        "count": 2,
+        "names": [
+          "Pug_anim0",
+          "Pug_anim1"
+        ]
+      },
+      "collision": {
+        "type": "dynamic",
+        "shape": "sphere",
+        "params": {
+          "radius": 0.5
+        }
+      },
+      "loadPriority": "lazy"
+    },
+    {
+      "assetId": "anim_quaternius_farm_Sheep",
+      "designId": "QAN-06",
+      "path": "assets/quaternius_animated/farm_Sheep_animated.glb",
+      "category": "animal",
+      "priority": "P1",
+      "name": "Quaternius 羊(动画)",
+      "sizeKB": 240.1,
+      "source": "cc0_quaternius_animated",
+      "license": "CC0",
+      "attribution": "Quaternius (Animated Farm/Animals Pack, FBX 转骨骼动画)",
+      "animations": {
+        "count": 2,
+        "names": [
+          "Sheep_anim0",
+          "Sheep_anim1"
+        ]
+      },
+      "collision": {
+        "type": "dynamic",
+        "shape": "sphere",
+        "params": {
+          "radius": 0.5
+        }
+      },
+      "loadPriority": "lazy"
+    },
+    {
+      "assetId": "anim_quaternius_farm_Zebra",
+      "designId": "QAN-07",
+      "path": "assets/quaternius_animated/farm_Zebra_animated.glb",
+      "category": "animal",
+      "priority": "P1",
+      "name": "Quaternius 斑马(动画)",
+      "sizeKB": 656.6,
+      "source": "cc0_quaternius_animated",
+      "license": "CC0",
+      "attribution": "Quaternius (Animated Farm/Animals Pack, FBX 转骨骼动画)",
+      "animations": {
+        "count": 6,
+        "names": [
+          "Zebra_anim0",
+          "Zebra_anim1",
+          "Zebra_anim2",
+          "Zebra_anim3",
+          "Zebra_anim4",
+          "Zebra_anim5"
+        ]
+      },
+      "collision": {
+        "type": "dynamic",
+        "shape": "sphere",
+        "params": {
+          "radius": 0.5
+        }
+      },
+      "loadPriority": "lazy"
+    },
+    {
+      "assetId": "anim_quaternius_wild_bird",
+      "designId": "QAN-08",
+      "path": "assets/quaternius_animated/wild_bird_animated.glb",
+      "category": "animal",
+      "priority": "P1",
+      "name": "Quaternius 鸟(动画)",
+      "sizeKB": 98.9,
+      "source": "cc0_quaternius_animated",
+      "license": "CC0",
+      "attribution": "Quaternius (Animated Farm/Animals Pack, FBX 转骨骼动画)",
+      "animations": {
+        "count": 3,
+        "names": [
+          "Bird_anim0",
+          "Bird_anim1",
+          "Bird_anim2"
+        ]
+      },
+      "collision": {
+        "type": "dynamic",
+        "shape": "sphere",
+        "params": {
+          "radius": 0.5
+        }
+      },
+      "loadPriority": "lazy"
+    },
+    {
+      "assetId": "anim_quaternius_wild_chick",
+      "designId": "QAN-09",
+      "path": "assets/quaternius_animated/wild_chick_animated.glb",
+      "category": "animal",
+      "priority": "P1",
+      "name": "Quaternius 小鸡(动画)",
+      "sizeKB": 81.8,
+      "source": "cc0_quaternius_animated",
+      "license": "CC0",
+      "attribution": "Quaternius (Animated Farm/Animals Pack, FBX 转骨骼动画)",
+      "animations": {
+        "count": 1,
+        "names": [
+          "Chick_anim0"
+        ]
+      },
+      "collision": {
+        "type": "dynamic",
+        "shape": "sphere",
+        "params": {
+          "radius": 0.5
+        }
+      },
+      "loadPriority": "lazy"
+    },
+    {
+      "assetId": "anim_quaternius_wild_fish",
+      "designId": "QAN-10",
+      "path": "assets/quaternius_animated/wild_fish_animated.glb",
+      "category": "animal",
+      "priority": "P1",
+      "name": "Quaternius 鱼(动画)",
+      "sizeKB": 80.1,
+      "source": "cc0_quaternius_animated",
+      "license": "CC0",
+      "attribution": "Quaternius (Animated Farm/Animals Pack, FBX 转骨骼动画)",
+      "animations": {
+        "count": 1,
+        "names": [
+          "Fish_anim0"
+        ]
+      },
+      "collision": {
+        "type": "dynamic",
+        "shape": "sphere",
+        "params": {
+          "radius": 0.5
+        }
+      },
+      "loadPriority": "lazy"
+    },
+    {
+      "assetId": "anim_quaternius_wild_redfox",
+      "designId": "QAN-11",
+      "path": "assets/quaternius_animated/wild_redfox_animated.glb",
+      "category": "animal",
+      "priority": "P1",
+      "name": "Quaternius 红狐(动画)",
+      "sizeKB": 146.2,
+      "source": "cc0_quaternius_animated",
+      "license": "CC0",
+      "attribution": "Quaternius (Animated Farm/Animals Pack, FBX 转骨骼动画)",
+      "animations": {
+        "count": 1,
+        "names": [
+          "Redfox_anim0"
+        ]
+      },
+      "collision": {
+        "type": "dynamic",
+        "shape": "sphere",
+        "params": {
+          "radius": 0.5
+        }
+      },
+      "loadPriority": "lazy"
+    },
+    {
+      "assetId": "anim_quaternius_wild_whale",
+      "designId": "QAN-12",
+      "path": "assets/quaternius_animated/wild_whale_animated.glb",
+      "category": "animal",
+      "priority": "P1",
+      "name": "Quaternius 鲸鱼(动画)",
+      "sizeKB": 211.5,
+      "source": "cc0_quaternius_animated",
+      "license": "CC0",
+      "attribution": "Quaternius (Animated Farm/Animals Pack, FBX 转骨骼动画)",
+      "animations": {
+        "count": 2,
+        "names": [
+          "Whale_anim0",
+          "Whale_anim1"
+        ]
+      },
+      "collision": {
+        "type": "dynamic",
+        "shape": "sphere",
+        "params": {
+          "radius": 0.5
+        }
+      },
+      "loadPriority": "lazy"
     }
   ]
 }
