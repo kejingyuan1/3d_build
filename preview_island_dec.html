@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HY3D 岛屿减面预览 · 原版 vs 减面</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { height:100%; background:#1c241c; color:#F5EFE0; font-family:system-ui,"Microsoft YaHei",sans-serif; display:flex; flex-direction:column; }
+  header { flex:0 0 auto; padding:10px 18px; background:rgba(15,22,15,.9); border-bottom:1px solid rgba(255,255,255,.12); display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  header h1 { font-size:15px; font-weight:600; }
+  header .sub { font-size:12px; color:#A8BFA8; }
+  header .ctrl { margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; }
+  header .ctrl button { background:#334433; color:#F5EFE0; border:1px solid #5a7a5a; border-radius:7px; padding:5px 14px; font-size:12px; cursor:pointer; }
+  header .ctrl button:hover { background:#4a5f4a; }
+  header .ctrl button.active { background:#6BAF4E; border-color:#8fce6f; color:#10240f; font-weight:600; }
+  main { flex:1; display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:10px; min-height:0; }
+  .cell { position:relative; background:#243324; border:1px solid rgba(255,255,255,.12); border-radius:10px; overflow:hidden; min-height:0; }
+  .cell canvas { position:absolute; inset:0; width:100%; height:100%; display:block; }
+  .cell .cap { position:absolute; top:8px; left:10px; z-index:3; background:rgba(12,18,12,.85); border-radius:8px; padding:6px 10px; font-size:12px; line-height:1.65; pointer-events:none; min-width:220px; }
+  .cell .cap .badge { display:inline-block; padding:2px 10px; border-radius:8px; font-weight:700; margin-right:6px; }
+  .cell .cap b { color:#A7E0A7; }
+  .cell .cap .dim { color:#9FB89F; font-size:11px; }
+  .cell .ratio { position:absolute; bottom:8px; right:10px; z-index:3; background:rgba(12,18,12,.85); border-radius:8px; padding:6px 10px; font-size:11px; pointer-events:none; color:#A7E0A7; font-weight:600; }
+  footer { flex:0 0 auto; padding:6px 18px; font-size:11px; color:#8CA88C; background:rgba(15,22,15,.6); }
+  footer b { color:#A7E0A7; }
+  @media (max-width: 900px) { main { grid-template-columns:1fr; grid-template-rows:1fr 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>🏝️ HY3D 岛屿减面预览</h1>
+  <span class="sub">原版 499,980 tris · 31.6MB &nbsp;→&nbsp; 减面 9,998 tris · 748KB（97.6%↓）</span>
+  <span class="ctrl" id="ctrl"></span>
+</header>
+<main id="grid"></main>
+<footer>
+  <b>管线：</b> meshopt simplify 分级减面（normal 模式，error=0.05）→ 自写平滑法线 → sharp 重贴图（4096²PNG→2048²WebP q82）→ WebP 复用 UV（贴图不重映射）。
+  <b>验证：</b> Node GLTFLoader.parse ✓ · bbox 与原版一致（±0.001）· NaN/extreme=0 · 贴图 1 张保留。每格 OrbitControls。
+</footer>
+<script type="importmap">
+{ "imports": {
+  "three": "/vendor/three/build/three.module.js",
+  "three/addons/": "/vendor/three/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const CELLS = [
+  { label: '原版', badge: '#c66', file: 'hy3_island.glb', note: '499,980 tris · 31.62 MB · 4096² PNG', dec: false },
+  { label: '减面', badge: '#6BAF4E', file: 'assets/terrain/hy3_island_dec.glb', note: '9,998 tris · 748 KB · 2048² WebP', dec: true },
+];
+
+const q = new URLSearchParams(location.search);
+const PRESETS = {
+  overview: { pos: new THREE.Vector3(1.3, 1.1, -0.5), tgt: new THREE.Vector3(0.02, 0.29, -0.3) },
+  palm: { pos: new THREE.Vector3(parseFloat(q.get('px')||0.6), parseFloat(q.get('py')||0.7), parseFloat(q.get('pz')||0.05)), tgt: new THREE.Vector3(parseFloat(q.get('tx')||0.12), parseFloat(q.get('ty')||0.4), parseFloat(q.get('tz')||-0.3)) },
+  grass: { pos: new THREE.Vector3(parseFloat(q.get('gx')||-0.5), parseFloat(q.get('gy')||0.3), parseFloat(q.get('gz')||0.05)), tgt: new THREE.Vector3(parseFloat(q.get('gx2')||0.02), parseFloat(q.get('gy2')||0.12), parseFloat(q.get('gz2')||-0.3)) },
+};
+const initPreset = q.get('preset') || 'overview';
+
+const ctrlEl = document.getElementById('ctrl');
+const gridEl = document.getElementById('grid');
+const cells = [];
+let activePreset = initPreset;
+
+function applyPreset(name) {
+  activePreset = name;
+  const p = PRESETS[name];
+  cells.forEach(c => {
+    c.camera.position.copy(p.pos);
+    c.controls.target.copy(p.tgt);
+    c.controls.update();
+  });
+  document.querySelectorAll('#ctrl button').forEach(b => b.classList.toggle('active', b.dataset.p === name));
+}
+
+const presetLabels = { overview: '全景', palm: '椰子树', grass: '草地' };
+Object.keys(PRESETS).forEach(n => {
+  const b = document.createElement('button');
+  b.textContent = presetLabels[n];
+  b.dataset.p = n;
+  b.onclick = () => applyPreset(n);
+  ctrlEl.appendChild(b);
+});
+
+function makeCell(cfg) {
+  const cell = document.createElement('div');
+  cell.className = 'cell';
+  gridEl.appendChild(cell);
+  const canvas = document.createElement('canvas');
+  cell.appendChild(canvas);
+  const cap = document.createElement('div');
+  cap.className = 'cap';
+  cap.innerHTML = '<span class="badge" style="background:' + cfg.badge + ';color:' + (cfg.dec ? '#10240f' : '#fff') + '">' + cfg.label + '</span><b>' + cfg.note + '</b><br><span class="dim" id="st-'+cfg.label+'">加载中…</span>';
+  cell.appendChild(cap);
+
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+  const scene = new THREE.Scene();
+  scene.environment = new RoomEnvironment(renderer);
+  scene.background = new THREE.Color(0x87b5d9);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+  const sun = new THREE.DirectionalLight(0xfff4e0, 1.6);
+  sun.position.set(3, 4, 1.5); scene.add(sun);
+  const fill = new THREE.DirectionalLight(0xc8d8ff, 0.5);
+  fill.position.set(-3, 3, -2); scene.add(fill);
+
+  const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 50);
+  const controls = new OrbitControls(camera, canvas);
+  controls.enableDamping = true;
+
+  fetch(cfg.file).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+    .then(buf => new Promise((res, rej) => new GLTFLoader().parse(buf, '', res, rej)))
+    .then(gltf => {
+      const obj = gltf.scene;
+      scene.add(obj);
+      let tris = 0, verts = 0;
+      obj.traverse(o => { if (o.isMesh) { const g = o.geometry; tris += g.index ? g.index.count/3 : g.attributes.position.count/3; verts += g.attributes.position.count; } });
+      obj.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(obj);
+      const size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+      document.getElementById('st-' + cfg.label).textContent =
+        'tris=' + Math.round(tris).toLocaleString() + ' · verts=' + verts.toLocaleString() + ' · bbox ' + size.x.toFixed(2) + '×' + size.y.toFixed(2) + '×' + size.z.toFixed(2);
+      if (activePreset === 'overview') {
+        const fit = Math.max(size.x, size.y, size.z);
+        camera.position.set(center.x + fit*1.6, center.y + fit*1.4, center.z - fit*1.4);
+        controls.target.copy(center);
+      } else {
+        const p = PRESETS[activePreset];
+        camera.position.copy(p.pos);
+        controls.target.copy(p.tgt);
+      }
+      controls.update();
+      if (cfg.dec) {
+        const ratio = document.createElement('div');
+        ratio.className = 'ratio';
+        ratio.textContent = 'tris 98.0%↓ · size 97.6%↓';
+        cell.appendChild(ratio);
+      }
+      _bumpLoaded();
+    })
+    .catch(e => { document.getElementById('st-' + cfg.label).textContent = 'ERR ' + (e && e.message || e); _bumpLoaded(); });
+
+  new ResizeObserver(() => {
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    if (w && h) { camera.aspect = w / h; camera.updateProjectionMatrix(); renderer.setSize(w, h, false); }
+  }).observe(canvas);
+
+  (function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
+  })();
+
+  cells.push({ cfg, canvas, camera, controls, scene });
+}
+
+window.__loaded = 0;
+window._bumpLoaded = function() { window.__loaded = (window.__loaded||0) + 1; if (window.__loaded >= CELLS.length) window.__ready = true; };
+
+CELLS.forEach(makeCell);
+applyPreset(initPreset);
+document.querySelector('#ctrl button[data-p="' + initPreset + '"]')?.classList.add('active');
+</script>
+</body>
+</html>
