@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>鸭子骨骼动画（HY3D + 程序化绑骨）</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:"Microsoft YaHei",sans-serif; background:#1a2332; color:#eee; overflow:hidden; }
+  #viewer { position:absolute; inset:0; }
+  #panel { position:absolute; top:12px; left:50%; transform:translateX(-50%); background:rgba(20,28,40,.85);
+    border:1px solid rgba(255,255,255,.15); border-radius:12px; padding:10px 18px; display:flex; gap:12px; align-items:center; z-index:10; }
+  .btn { background:#2b3a52; color:#dfe9f5; border:1px solid #3d5068; padding:7px 16px; border-radius:8px; font-size:13px; cursor:pointer; }
+  .btn.active { background:#4a9de0; border-color:#6cb8f0; color:#fff; }
+  #status { position:absolute; bottom:14px; left:50%; transform:translateX(-50%); background:rgba(20,28,40,.8);
+    border:1px solid rgba(255,255,255,.12); border-radius:10px; padding:8px 16px; font-size:13px; color:#b8c8dc; z-index:10; text-align:center; }
+</style>
+</head>
+<body>
+<div id="viewer"></div>
+<div id="panel">
+  <button class="btn" id="btnWalk">🚶 走路（骨骼）</button>
+  <button class="btn" id="btnEat">🐛 低头吃食（骨骼）</button>
+  <button class="btn" id="btnIdle" class="active">🧍 待机</button>
+</div>
+<div id="status">加载中...</div>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three/build/three.module.js", "three/addons/": "./vendor/three/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const viewer = document.getElementById('viewer');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87CEEB);
+const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.1, 200);
+camera.position.set(2.5, 1.6, 3.5);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+renderer.shadowMap.enabled = true;
+viewer.appendChild(renderer.domElement);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0.5, 0);
+controls.enableDamping = true;
+
+scene.add(new THREE.HemisphereLight(0xDFEBFF, 0xFFF0D0, 2.2));
+const sun = new THREE.DirectionalLight(0xFFF8E8, 2.8);
+sun.position.set(5, 8, 4); sun.castShadow = true;
+scene.add(sun);
+const fill = new THREE.DirectionalLight(0xCFE8FF, 1.0);
+fill.position.set(-4, 3, -2);
+scene.add(fill);
+
+const ground = new THREE.Mesh(new THREE.CircleGeometry(5, 32), new THREE.MeshLambertMaterial({ color: 0x8BC34A }));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true;
+scene.add(ground);
+
+const loader = new GLTFLoader();
+const statusEl = document.getElementById('status');
+let duck = null, mixer = null, actions = {};
+let mode = 'idle';
+
+async function init() {
+  try {
+    const gltf = await loader.loadAsync('hy3_duck_skel.glb');
+    duck = gltf.scene;
+    duck.scale.setScalar(1.2);
+    duck.traverse(o => {
+      if (o.isMesh) {
+        o.castShadow = o.receiveShadow = true;
+        o.material = new THREE.MeshLambertMaterial({
+          color: 0xffffff,
+          map: o.material && (o.material.map || (o.material.pbrMetallicRoughness && o.material.pbrMetallicRoughness.baseColorTexture)) || null,
+        });
+      }
+    });
+    scene.add(duck);
+    // 骨骼动画
+    mixer = new THREE.AnimationMixer(duck);
+    gltf.animations.forEach(a => { actions[a.name] = mixer.clipAction(a); });
+    statusEl.textContent = '✅ 骨骼鸭子就绪 — 走路=腿关节摆动，低头=髋部前倾（真骨骼蒙皮）';
+    console.log('骨骼动画:', Object.keys(actions).join(', '));
+    window.__duck = duck;
+    window.__mixer = mixer;
+  } catch (e) {
+    statusEl.textContent = '❌ ' + e.message;
+    console.error(e);
+  }
+}
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('#panel .btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(m === 'walk' ? 'btnWalk' : m === 'eat' ? 'btnEat' : 'btnIdle').classList.add('active');
+  if (!mixer) return;
+  // 停止所有，播放对应
+  Object.values(actions).forEach(a => a.stop());
+  if (m === 'walk') { actions.walk.reset().setLoop(2200, true).play(); console.log('walk play, dur:', actions.walk._clip.duration); }
+  else if (m === 'eat') { actions.eat.reset().setLoop(2200, true).play(); console.log('eat play'); }
+}
+let lastT = performance.now();
+function animate() {
+  requestAnimationFrame(animate);
+  const now = performance.now();
+  const dt = Math.min(0.05, (now - lastT) / 1000);
+  lastT = now;
+  if (mixer) mixer.update(dt);
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+window.addEventListener('resize', () => { camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+document.getElementById('btnWalk').onclick = () => setMode('walk');
+document.getElementById('btnEat').onclick = () => setMode('eat');
+document.getElementById('btnIdle').onclick = () => setMode('idle');
+init();
+</script>
+</body>
+</html>
