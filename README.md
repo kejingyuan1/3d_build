@@ -2,7 +2,90 @@
 
 农场牧场网页游戏（Three.js + Rapier）的 3D 资产包。包含 **97+ 项资产**：建筑（含 5 级升级链）、动物（静态 + 动画版）、植物、鱼类、道具、家具，全部带碰撞体配置与门交互支持。
 
-**来源**：CC0（Kenney / Quaternius）+ 程序化生成，商业可自由使用，归详见 `assets/manifest.json`。
+**来源**：CC0（Kenney / Quaternius）+ 程序化生成 + **HY3 混元 3D AI 生成**，商业可自由使用，归详见 `assets/manifest.json`。
+
+---
+
+## ⭐ 3D 角色制作标准（最重要！所有 3D 角色/动物必须按此标准执行）
+
+> **此标准是 3D 鸭子（demo_duck.html）的成功经验总结。以后所有 3D 角色制作（动物、NPC、玩家）必须严格按此标准。**
+
+### 0. 原则：用 HY3 混元 3D 大模型，不是 2D 文生图
+
+- **HY3 混元 3D**（Tencent Hunyuan 3D）能直接生成**真 3D 模型（GLB）**——是"半写实风格"的正确工具
+- **严禁**用 2D ImageGen 生成图当贴图（那只是贴图卡片，不是 3D 建模）
+- 一天 **5 次** 3D 调用配额，务必精心设计 prompt 一次成功
+
+### 1. HY3 3D 模型生成（buddy-cloud.py）
+
+```bash
+# 获取凭证后（connect_cloud_service），文生 3D：
+echo -n "<token>" | python.exe \
+  "C:/Users/WIN11/AppData/Local/Programs/WorkBuddy/resources/app.asar.unpacked/resources/builtin-skills/buddy-multimodal-generation/scripts/buddy-cloud.py" \
+  3d "半写实皮克斯风格的白色鸭子身体，圆润可爱，白色细腻羽毛质感，黄色扁嘴巴，黑色圆眼睛，头顶一撮黑色羽毛，没有脚，站立姿态，3D 卡通角色模型" \
+  --no-poll --token-stdin
+
+# 查询状态：
+#   python.exe buddy-cloud.py status <job_id> --type 3d --token-stdin
+# 下载：脚本只返回 URL，用 curl/python 下载到本地（沙盒 DNS 慢会 timeout 但数据仍写入）
+```
+
+**Prompt 标准**（身体和脚**分开生成**，每部件一次调用）：
+- 身体：`半写实皮克斯风格的<动物>身体，圆润可爱，<主色>细腻羽毛/皮毛质感，<特征1>，<特征2>，没有脚，站立姿态，3D 卡通角色模型`
+- 脚：`半写实风格的<颜色>鸭子脚，三根脚趾带蹼，卡通渲染风格，3D 模型`
+
+### 2. 组装标准（身体 + 脚分开 → 分离式 GLB）
+
+- 身体和脚**分开生成**（2 次 3D 调用），组装成分离节点：
+  - `world { body, foot_l, foot_r }`（3 个 mesh 独立 accessor）
+  - 身体高度归一 1m，脚高度 0.35m，脚复制 2 份放身体底部 ±0.2
+- ⚠️ **注意**：HY3 生成"无脚"身体时 AI 仍可能带腿/脚——**若身体自带脚就直接用，不要再加 foot 节点**（否则 4 条腿）
+
+### 3. PBR 贴图保留（颜色正确显示的关键）
+
+- HY3 模型自带 `baseColorTexture`（如白身+黄嘴+黑眼）——**必须保留**
+- ✅ 正确：`MeshLambertMaterial({ color: 0xffffff, map: o.material.map || pbrMetallicRoughness.baseColorTexture })`
+- ❌ 错误：`vertexColors: true`（会用白色覆盖贴图，导致"没上色"）
+
+### 4. 动画标准：pivot 枢轴 + lerp 平滑（重要！）
+
+**任何"弯腰/低头/走路"动作**必须用以下方法（**用户明确要求，所有后续动画都按此执行**）：
+
+```js
+// (a) 创建 pivot 枢轴 Group：原点 = 角色脚底
+const pivot = new THREE.Group();
+pivot.position.set(0, 0, 0);   // 脚底贴地（HY3 模型 bounds min_y = 0）
+scene.add(pivot);
+pivot.add(duck);               // 角色作为子节点 → 自动以脚底为旋转圆心
+
+// (b) lerp 平滑插值（让动作"动起来"，不是瞬间切换）
+const lerp = (a, b, t) => a + (b - a) * t;
+pivot.rotation.x = lerp(pivot.rotation.x, 0.7, 0.08);  // 低头：平滑前倾 40°
+
+// (c) 到位后微抖动增加生命力
+if (pivot.rotation.x > 0.6) {
+  pivot.rotation.x += Math.sin(time * 4) * 0.01;   // 点头
+}
+```
+
+**3 种模式动画**：
+| 模式 | 动作 |
+|------|------|
+| `walk` 走路 | pivot.rotation.x → 0（平滑）+ body 上下浮动 + 微侧摆 |
+| `eat` 低头 | pivot.rotation.x → 0.7（绕脚底前倾）+ 到位后点头 |
+| `idle` 待机 | 所有角度平滑归 0 |
+
+### 5. GLB 提交标准
+
+- **单文件 < 100MB 直接入仓**（GitHub 允许；29MB 的 GLB 直接提交）
+- 单独 push 大文件避免网络超时（不要一次 push 多个 30MB+ 文件）
+- 可选用 Draco/Meshopt 压缩（29MB → ~8MB）
+
+### 6. 验证标准
+
+- 渲染验证：puppeteer 加载 demo 页 → 截图 → 程序分析像素（白/黄/深色比例确认颜色正确）
+- 动画验证：连续截 4 帧读 `pivot.rotation.x` 时序（0→0.28→0.60→0.73 平滑，证明"动起来"）
+- 提交前必须跑通验证脚本
 
 ---
 
@@ -11,7 +94,8 @@
 ```
 assets/
 ├── manifest.json              # 资产注册表（碰撞体/门交互/CC0 归属/优先级）
-├── animals/                   # 程序化动物（鸡/牛/羊/猪）
+├── animals/                   # 程序化动物（鸡/牛/羊/猪）+ HY3 鸭子（animal_duck_white.glb 组装版）
+├── lifecycle/                 # 生命周期 GLB（成年/幼年/蛋：鸭/鸡/鹅/牛/羊/猪）
 ├── buildings/                 # 程序化建筑（农舍/鸡舍/牛棚 + 10 件家具）
 ├── fish/                      # 程序化鱼类（鲤鱼/鲈鱼/鳟鱼/罗非鱼/鲶鱼/草鱼）
 ├── plants/                    # 程序化植物（小麦/胡萝卜/番茄/南瓜/树/花）
@@ -23,6 +107,11 @@ assets/
 ├── quaternius_animated/       # ★ 动画版 GLB（12 个，FBX 转骨骼动画）
 ├── upgrade_buildings/         # ★ 5 级升级链建筑（L1 茅草屋 → L5 豪华庄园，带门）
 └── quaternius_trees/          # Quaternius 45 棵树（Birch/Pine/DeadTree 等）
+hy3_duck_body.glb              # ★ HY3 混元 3D 鸭子身体（27.8MB，demo_duck.html 直接加载）
+hy3_duck_foot.glb              # ★ HY3 混元 3D 鸭子脚（27.8MB，备用）
+demo_duck.html                 # ★ 鸭子 demo：pivot+lerp 动画（走路/低头/待机）
+tools/gen_hy3_assemble.py      # 身体+脚组装脚本
+tools/verify_duck_*.js         # 鸭子渲染/动画验证脚本
 tools/asset_generator/         # 程序化生成器 + FBX→GLB 转换器
 preview.html                   # Three.js 3D 预览（点击开门、旋转缩放）
 ```
