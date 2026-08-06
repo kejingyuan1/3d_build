@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>HY3D 海岛地图（混元 3D AI 生成）</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:"Microsoft YaHei",sans-serif; background:#1a2332; color:#eee; overflow:hidden; }
+  #viewer { position:absolute; inset:0; }
+  #status { position:absolute; bottom:14px; left:50%; transform:translateX(-50%); background:rgba(20,28,40,.8);
+    border:1px solid rgba(255,255,255,.12); border-radius:10px; padding:8px 16px; font-size:13px; color:#b8c8dc; z-index:10; text-align:center; }
+</style>
+</head>
+<body>
+<div id="viewer"></div>
+<div id="status">加载中...</div>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three/build/three.module.js", "three/addons/": "./vendor/three/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const viewer = document.getElementById('viewer');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87CEEB);
+
+const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.1, 500);
+camera.position.set(8, 6, 10);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+viewer.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0, 0);
+controls.enableDamping = true;
+
+scene.add(new THREE.HemisphereLight(0xDFEBFF, 0xFFF0D0, 2.2));
+const sun = new THREE.DirectionalLight(0xFFF8E8, 2.8);
+sun.position.set(5, 8, 4);
+scene.add(sun);
+const fill = new THREE.DirectionalLight(0xCFE8FF, 1.0);
+fill.position.set(-4, 3, -2);
+scene.add(fill);
+
+const loader = new GLTFLoader();
+const statusEl = document.getElementById('status');
+
+async function init() {
+  try {
+    const gltf = await loader.loadAsync('hy3_island.glb');
+    const model = gltf.scene;
+    // 保留 HY3D 贴图颜色（PBR baseColorTexture），Lambert 柔和
+    model.traverse(o => {
+      if (o.isMesh) {
+        o.material = new THREE.MeshLambertMaterial({
+          color: 0xffffff,
+          map: o.material && (o.material.map || (o.material.pbrMetallicRoughness && o.material.pbrMetallicRoughness.baseColorTexture)) || null,
+        });
+      }
+    });
+    scene.add(model);
+    // 自动居中
+    const box = new THREE.Box3().setFromObject(model);
+    const center = new THREE.Vector3(); box.getCenter(center);
+    controls.target.copy(center);
+    // 相机距离按模型大小
+    const size = box.getSize(new THREE.Vector3()).length() * 0.8;
+    camera.position.set(size, size * 0.6, size);
+    controls.update();
+    window.__island = model;
+    statusEl.textContent = '✅ HY3D 海岛地图就绪（混元 3D AI 生成：海洋+沙滩+草地+棕榈树）— 拖拽旋转查看';
+  } catch (e) {
+    statusEl.textContent = '❌ ' + e.message;
+    console.error(e);
+  }
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+window.addEventListener('resize', () => { camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+init();
+</script>
+</body>
+</html>
