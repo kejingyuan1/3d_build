@@ -496,15 +496,22 @@ def _gen_grass_clump(rng, n_blades=None):
 
 
 def _gen_tree(rng, trunk_h=None):
-    """矮树：竖直树干(_vcyl) + 深绿树冠球簇（中心球 + 3-4 外围球）。
-    整树 ≈ 1.7-2.6m（1×→×20 后 34-52m），树干 1.0-1.6m（1×→×20 后 20-32m）"""
+    """矮树：竖直树干 + 深绿树冠球簇。
+    **树干顶端插入树冠中心 0.4-0.6m**（避免分离缝隙）。
+    整树 ≈ 1.7-2.6m（×20 后 34-52m），树干可见部分 1.0-1.6m（×20 后 20-32m）。"""
     if trunk_h is None:
         trunk_h = rng.uniform(1.0, 1.6)
     parts = []
-    trunk = _vcyl(_j(TREE_TRUNK, 0.04, rng), radius=rng.uniform(0.1, 0.15), height=trunk_h, sections=8)
-    trunk.apply_translation([0, trunk_h / 2, 0])
-    parts.append(("tree_trunk", trunk))
+    # 树冠尺寸先决定（决定树干 overlap 长度）
     crown_r = rng.uniform(0.4, 0.55)
+    # 树干顶端嵌入树冠中心 ~40% 半径，**确保无缝衔接**
+    trunk_overlap = crown_r * rng.uniform(0.5, 0.8)
+    trunk_total_h = trunk_h + trunk_overlap
+    trunk = _vcyl(_j(TREE_TRUNK, 0.04, rng), radius=rng.uniform(0.1, 0.15),
+                  height=trunk_total_h, sections=8)
+    trunk.apply_translation([0, trunk_total_h / 2, 0])  # 中心点：树根 0, 顶端 trunk_h+overlap
+    parts.append(("tree_trunk", trunk))
+    # 树冠中心球放树干"视觉顶端"上方（树冠看起来从树干长出）
     crown_y = trunk_h + crown_r * 0.45
     crown_c = _j(TREE_CROWN if rng.random() < 0.6 else PALM_GREEN, 0.04, rng)
     center = _sphere(crown_c, radius=crown_r, subdiv=1, scale=[1.0, 0.8, 1.0])

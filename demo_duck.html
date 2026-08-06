@@ -87,7 +87,7 @@ function applyToon(root) {
       let hex = 0xcccccc;
       if (attr && attr.array) hex = (attr.array[0]<<16)|(attr.array[1]<<8)|attr.array[2];
       const hasMap = orig && (orig.map || (orig.pbrMetallicRoughness && orig.pbrMetallicRoughness.baseColorTexture));
-      o.material = new THREE.MeshToonMaterial({ color:0xffffff, map: hasMap ? (orig.map||orig.pbrMetallicRoughness.baseColorTexture) : null, gradientMap: makeGradient() });
+      o.material = new THREE.MeshToonMaterial({ color:0xffffff, map: hasMap ? (orig.map||orig.pbrMetallicRoughness.baseColorTexture) : null, gradientMap: makeGradient(), vertexColors: true });
       if (!hasMap) o.material.color.setHex(hex);
     }
   });

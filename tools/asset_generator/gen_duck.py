@@ -142,30 +142,37 @@ def _build_neck(body_c, rng):
 # ================ ③ 头（局部原点 = 脖子顶连接点） ================
 
 def _build_head(body_c, rng):
-    """圆头 + 黑毛(3 根短锥) + 黄嘴(上嘴+下嘴) + 眼睛；局部原点=脖子顶连接点"""
+    """圆头 + 黑毛簇(5-6 根粗短锥，0x08 纯黑) + 黄嘴(明显宽扁) + 眼睛；局部原点=脖子顶连接点"""
     parts = []
-    # 圆头：中心 (0, 0.075, 0.05)，半径 0.075，头顶到 y≈0.15
-    head = _sphere(_j(body_c, 0.02, rng), radius=0.075, subdiv=2, scale=[0.98, 1.0, 1.02])
+    # 圆头：中心 (0, 0.075, 0.05)，半径 0.085 略大
+    head = _sphere(_j(body_c, 0.02, rng), radius=0.085, subdiv=2, scale=[0.98, 1.0, 1.02])
     head.apply_translation([0, 0.075, 0.05])
     parts.append(("head", head))
-    # 头顶黑毛（3 根短锥，绕自身基座微后倾）
-    tuft_pos = [(0, 0.146, 0.045), (-0.022, 0.150, 0.040), (0.022, 0.150, 0.040)]
+    # 头顶黑毛簇：6 根粗锥（不再用 TUFT_BLACK 抖动——直接纯黑 0x08，加粗加大）
+    tuft_pos = [
+        (0.000, 0.170, 0.045),  # 中央最高
+        (-0.030, 0.165, 0.040), (-0.018, 0.158, 0.060),  # 左侧
+        ( 0.030, 0.165, 0.040), ( 0.018, 0.158, 0.060),  # 右侧
+        (0.000, 0.155, 0.070),  # 中央偏前
+    ]
     for i, (tx, ty, tz) in enumerate(tuft_pos):
-        tuft = _vcone(_j(TUFT_BLACK, 0.02, rng), radius=0.014, height=0.05, sections=6)
-        tuft.apply_transform(_rot_x_at(-12, [0, 0, 0]))   # 绕自身基座微后倾
+        # 0x08 0x08 0x08 深近黑（不用 0x1A 让 toon 抬亮时也不会变白）
+        tuft = _vcone((0x08, 0x08, 0x08, 255), radius=0.022, height=0.07, sections=6)
+        tuft.apply_transform(_rot_x_at(-15, [0, 0, 0]))
         tuft.apply_translation([tx, ty, tz])
         parts.append((f"tuft{i}", tuft))
-    # 黄嘴：上嘴（扁圆） + 下嘴（扁圆，稍小）
-    beak_up = _sphere(_j(BEAK_YELLOW, 0.02, rng), radius=0.038, subdiv=1, scale=[1.0, 0.50, 1.50])
-    beak_up.apply_translation([0, 0.100, 0.145])
+    # 黄嘴：上嘴明显宽扁（scale [1.8, 0.5, 2.0]，radius 0.05 → 最大 0.1m 扁嘴）
+    beak_up = _sphere((0xFF, 0xC8, 0x4A, 255), radius=0.05, subdiv=1, scale=[1.8, 0.50, 2.0])
+    beak_up.apply_translation([0, 0.100, 0.165])
     parts.append(("beak_up", beak_up))
-    beak_lo = _sphere(_j(BEAK_YELLOW, 0.02, rng), radius=0.032, subdiv=1, scale=[1.0, 0.45, 1.30])
-    beak_lo.apply_translation([0, 0.062, 0.132])
+    # 下嘴稍小
+    beak_lo = _sphere((0xFF, 0xC8, 0x4A, 255), radius=0.042, subdiv=1, scale=[1.7, 0.45, 1.8])
+    beak_lo.apply_translation([0, 0.062, 0.150])
     parts.append(("beak_lo", beak_lo))
-    # 眼睛（左右小黑点）
+    # 眼睛（左右小黑点）——稍微往中靠
     for side in (-1, 1):
-        eye = _sphere(EYE_BLACK, radius=0.011, subdiv=1)
-        eye.apply_translation([0.045 * side, 0.105, 0.115])
+        eye = _sphere((0x08, 0x08, 0x08, 255), radius=0.013, subdiv=1)
+        eye.apply_translation([0.050 * side, 0.110, 0.130])
         parts.append((f"eye{side}", eye))
     return _merge([m for _, m in parts])
 
