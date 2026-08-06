@@ -11,6 +11,14 @@
 - 海面例外：800m 大水面若沿用原 40 格细分太稀，波光斑块会糊；顶面细分 n=40→90（≈8.3k 顶点），
   底面 n=20→45，总顶点 ~10.4k（6000-12000 区间）。波光斑块坐标在 1× 空间定义、随 SCALE 等比放大。
 - 锚点不变：岛基座底 min_y=0（海面 y=0），海面顶面 y=0；矿藏同规则。
+
+2026 第二轮反馈（形状过于规则 / 饱和度不够）：
+- 岛屿不规则化：岛轮廓改为极坐标半径抖动 r(θ)=R*(1+Σamp*sin(kθ+φ))（k=3/5/7，amp 0.05-0.18，
+  每岛确定性种子），shapely buffer 平滑 + 直径封顶 ≤200m；沙滩环/草地顶/水下基座三层共用同一组
+  抖动半径（同 θ 同 r，层间半径差：基座 +1.5m、沙滩环 -0.8m），俯视轮廓自然贴合。
+- 色彩饱和度：_sat() 将顶点色 sRGB→HSL，S×1.4（上限 1.0）、L×1.05（上限 0.95）后转回 RGB，
+  应用到沙滩/草地/山丘/岩石/基座/棕榈/小屋/码头；海面直接指定更深海蓝 0x1F6FA8 + 更亮波光。
+  矿藏矿石色（铜橙棕/银白/金黄）保持原有高饱和，不经过 _sat。
 """
 import os
 import sys
@@ -19,31 +27,83 @@ import json as _json
 import numpy as np
 import trimesh
 
+# 不规则岛轮廓平滑与三角化（可选依赖；缺失时退化为扇形三角化，形状不变）
+try:
+    from shapely.geometry import Polygon as _ShapelyPolygon
+    import mapbox_earcut as _earcut
+    _HAS_SHAPELY = True
+except Exception:
+    _HAS_SHAPELY = False
+
 BASE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE)
 
 import gen_lib as gl
 
 
+def _sat(color, s_mul=1.4, l_mul=1.05, s_cap=1.0, l_cap=0.95):
+    """色彩饱和度提升：sRGB → HSL，S×s_mul（上限 s_cap）、L×l_mul（上限 l_cap）→ sRGB。
+    用于解决用户"色彩饱和度不够"反馈（沙滩更暖、草地更鲜、岩石更清晰等）。"""
+    r, g, b = color[0] / 255.0, color[1] / 255.0, color[2] / 255.0
+    mx, mn = max(r, g, b), min(r, g, b)
+    l = (mx + mn) / 2.0
+    if mx - mn < 1e-9:
+        h, s = 0.0, 0.0
+    else:
+        d = mx - mn
+        s = d / (1.0 - abs(2.0 * l - 1.0))
+        if mx == r:
+            h = ((g - b) / d) % 6.0
+        elif mx == g:
+            h = (b - r) / d + 2.0
+        else:
+            h = (r - g) / d + 4.0
+        h /= 6.0
+    s = min(s_cap, s * s_mul)
+    l = min(l_cap, l * l_mul)
+    # HSL → RGB
+    c = (1.0 - abs(2.0 * l - 1.0)) * s
+    x = c * (1.0 - abs(((h * 6.0) % 2.0) - 1.0))
+    m = l - c / 2.0
+    if h < 1.0 / 6.0:
+        rr, gg, bb = c, x, 0.0
+    elif h < 2.0 / 6.0:
+        rr, gg, bb = x, c, 0.0
+    elif h < 3.0 / 6.0:
+        rr, gg, bb = 0.0, c, x
+    elif h < 4.0 / 6.0:
+        rr, gg, bb = 0.0, x, c
+    elif h < 5.0 / 6.0:
+        rr, gg, bb = x, 0.0, c
+    else:
+        rr, gg, bb = c, 0.0, x
+    out = (int(round(min(255, max(0, (rr + m) * 255)))),
+           int(round(min(255, max(0, (gg + m) * 255)))),
+           int(round(min(255, max(0, (bb + m) * 255)))))
+    return out + (color[3] if len(color) > 3 else 255,)
+
+
 # ================ 色板（海洋/岛屿/矿藏） ================
-OCEAN_BASE   = (0x2E, 0x86, 0xC1, 255)   # 实体亮蓝 0x2E86C1
-OCEAN_PATCH  = (0x5D, 0xAD, 0xE2, 255)   # 浅蓝波光 0x5DADE2
-OCEAN_BORDER = (0x4A, 0x9B, 0xD6, 255)   # 边框稍亮
-OCEAN_DEEP   = (0x1F, 0x5E, 0x8F, 255)   # 底面更深蓝
+# 海洋：直接指定更深海蓝底 + 更亮波光（用户要求 0x2E86C1 → 0x1F6FA8、波光更亮）
+OCEAN_BASE   = (0x1F, 0x6F, 0xA8, 255)   # 更深海蓝 0x1F6FA8（原 0x2E86C1）
+OCEAN_PATCH  = (0x73, 0xC8, 0xF0, 255)   # 浅蓝波光更亮（原 0x5DADE2）
+OCEAN_BORDER = _sat((0x4A, 0x9B, 0xD6, 255))  # 边框稍亮且更饱和
+OCEAN_DEEP   = (0x17, 0x4E, 0x78, 255)   # 底面更深蓝（原 0x1F5E8F）
 
-ISLAND_BASE  = (0x4A, 0x3B, 0x2E, 255)   # 水下基座 深棕
-ISLAND_BASE_BLUE = (0x2E, 0x4A, 0x5E, 255)  # 水下基座 深蓝（部分岛用）
-ISLAND_SAND   = (0xE8, 0xD8, 0xA0, 255)  # 沙滩环 米黄 0xE8D8A0
-ISLAND_GRASS  = (0x7E, 0xC8, 0x50, 255)  # 草地顶 绿 0x7EC850
-ISLAND_HILL   = (0x8F, 0xD4, 0x5E, 255)  # 山丘 草绿
-ISLAND_ROCK   = (0x9A, 0xA3, 0xA8, 255)  # 岩石 灰 0x9AA3A8
-PALM_TRUNK    = (0x8D, 0x6E, 0x63, 255)  # 棕榈树干 木棕
-PALM_LEAF     = (0x1E, 0x7A, 0x3C, 255)  # 棕榈冠 深绿
-HUT_WOOD      = (0xA0, 0x7B, 0x4F, 255)  # 小屋/码头 木色
-HUT_ROOF      = (0xC8, 0x4B, 0x3A, 255)  # 屋顶红
-DOCK_WOOD     = (0x8D, 0x6E, 0x63, 255)  # 码头木板
+# 岛屿/附属物：经 _sat 提饱和（S×1.4、L×1.05）
+ISLAND_BASE  = _sat((0x4A, 0x3B, 0x2E, 255), s_mul=1.3, l_mul=1.15)  # 水下基座 深棕（提亮一档）
+ISLAND_BASE_BLUE = _sat((0x2E, 0x4A, 0x5E, 255), s_mul=1.3, l_mul=1.15)  # 水下基座 深蓝（提亮一档）
+ISLAND_SAND   = _sat((0xE8, 0xD8, 0xA0, 255))  # 沙滩环 更暖沙黄
+ISLAND_GRASS  = _sat((0x7E, 0xC8, 0x50, 255))  # 草地顶 更鲜绿
+ISLAND_HILL   = _sat((0x8F, 0xD4, 0x5E, 255))  # 山丘 更鲜草绿
+ISLAND_ROCK   = _sat((0x9A, 0xA3, 0xA8, 255))  # 岩石 更清晰灰蓝
+PALM_TRUNK    = _sat((0x8D, 0x6E, 0x63, 255))  # 棕榈树干 更饱和木棕
+PALM_LEAF     = _sat((0x1E, 0x7A, 0x3C, 255))  # 棕榈冠 更深绿
+HUT_WOOD      = _sat((0xA0, 0x7B, 0x4F, 255))  # 小屋/码头 更饱和木色
+HUT_ROOF      = _sat((0xC8, 0x4B, 0x3A, 255))  # 屋顶更鲜红
+DOCK_WOOD     = _sat((0x8D, 0x6E, 0x63, 255))  # 码头木板
 
-# 矿藏：body 主色 / hi 高亮
+# 矿藏：body 主色 / hi 高亮（保持原有高饱和，不经过 _sat）
 ORE_COLORS = {
     "copper": {"body": (0xC8, 0x75, 0x3A, 255), "hi": (0xB8, 0x6A, 0x30, 255)},
     "silver": {"body": (0xD8, 0xDC, 0xE0, 255), "hi": (0xC0, 0xC6, 0xCC, 255)},
@@ -54,6 +114,10 @@ TIER_NAMES = {"small": "小型", "medium": "中型", "large": "大型"}
 
 # 全局放大系数：1× 几何在 generate() 统一坐标缩放（顶点数不变）
 SCALE = 20
+# 岛屿不规则化参数
+ISLAND_MAX_DIAM = 200.0          # 抖动后最大直径封顶（m，×SCALE 后），保证 bounds 60-200m
+ISLAND_BASE_OFF = 0.075          # 1× = 1.5m final：水下基座外扩（层间半径差）
+ISLAND_SAND_OFF = -0.04          # 1× = -0.8m final：沙滩环内收（层间半径差）
 
 
 # ================ 基础几何 helpers（沿用 gen_seasons 风格） ================
@@ -115,6 +179,106 @@ def _ore_chunk(color, rng, radius=0.1, jit=0.35):
     v = m.vertices
     j = 1.0 + rng.uniform(-jit, jit, size=len(v))
     m.vertices = v * j[:, None]
+    gl._ensure_normals(m)
+    m.visual = trimesh.visual.ColorVisuals(m, vertex_colors=color)
+    return m
+
+
+# ================ 岛屿不规则化（极坐标半径抖动） ================
+
+def _triangulate_ring(ring_pts):
+    """三角化平面环（单环，无孔）。优先 mapbox_earcut；缺失/异常时退化为星形扇形
+    （抖动足迹对原点星形，扇形与耳切等价且绕序确定）。返回 (n_tri, 3) 索引，逆时针。"""
+    n = len(ring_pts)
+    if n < 3:
+        return np.zeros((0, 3), dtype=np.int64)
+    if _HAS_SHAPELY:
+        try:
+            flat = ring_pts.astype(np.float64)
+            idx = np.asarray(_earcut.triangulate_float64(flat, np.array([n], dtype=np.uint32)),
+                             dtype=np.int64).reshape(-1, 3)
+            if len(idx) >= n - 2 and idx.size and idx.max() < n and idx.min() >= 0:
+                return idx
+        except Exception:
+            pass
+    # 星形扇形退化：0 为中心顶点
+    return np.array([[0, (i + 1) % n, (i + 2) % n] for i in range(n - 2)], dtype=np.int64)
+
+
+def _island_footprint(r, rng, n=None, amp_lo=0.05, amp_hi=0.18, max_diam=ISLAND_MAX_DIAM):
+    """岛轮廓：极坐标半径抖动 r(θ)=R*(1+amp1*sin(3θ+φ1)+amp2*sin(5θ+φ2)+amp3*sin(7θ+φ3))。
+    - amp 每岛随机（确定性种子），0.05-0.18 内取值；主岛 03 用更高区间（更显眼）
+    - 控制点 24-36 个，shapely buffer 平滑（圆滑但非正圆）
+    - 直径封顶 max_diam（×SCALE 后），保证 bounds 60-200m
+    返回 (th, R)：平滑后轮廓的极角与半径（长度一致，星形，含原点）。"""
+    if n is None:
+        n = int(rng.integers(24, 37))
+    amp = [rng.uniform(amp_lo, amp_hi) for _ in range(3)]
+    phi = [rng.uniform(0, 2 * np.pi) for _ in range(3)]
+    th = np.linspace(0, 2 * np.pi, n, endpoint=False)
+    rfac = 1.0 + (amp[0] * np.sin(3 * th + phi[0])
+                  + amp[1] * np.sin(5 * th + phi[1])
+                  + amp[2] * np.sin(7 * th + phi[2]))
+    R = r * rfac
+    if _HAS_SHAPELY:
+        try:
+            poly = _ShapelyPolygon(np.column_stack([R * np.cos(th), R * np.sin(th)]))
+            sp = poly.buffer(0.02, quad_segs=3)   # 平滑转角（外扩 0.4m，视觉不可见）
+            coords = np.array(sp.exterior.coords)[:-1]
+            th = np.arctan2(coords[:, 1], coords[:, 0])
+            R = np.hypot(coords[:, 0], coords[:, 1])
+        except Exception:
+            pass
+    # 直径封顶（×SCALE 后 ≤ max_diam）：等比缩放 R，形状不变。
+    # 因水下基座层额外外扩 ISLAND_BASE_OFF（1.5m），封顶按基座最外沿折算，保证岛最外径 ≤200m
+    cap = (max_diam / 2.0 - ISLAND_BASE_OFF * SCALE) / SCALE
+    mx = R.max()
+    if mx > cap:
+        R = R * (cap / mx)
+    return th, R
+
+
+def _irregular_layer(color, th, R, y0, h, r_bot=1.0, r_top=1.0):
+    """不规则柱台（极角/半径轮廓）：底环 R*r_bot @ y0，顶环 R*r_top @ y0+h，侧壁四边形 + 耳切顶/底盖。
+    与 _frustum 同规范：保证法线朝外、min_y 由调用方归一。"""
+    n = len(R)
+    bot = np.column_stack([R * r_bot * np.cos(th), np.full(n, y0), R * r_bot * np.sin(th)])
+    top = np.column_stack([R * r_top * np.cos(th), np.full(n, y0 + h), R * r_top * np.sin(th)])
+    c = np.array([0.0, y0, 0.0])
+    ct = np.array([0.0, y0 + h, 0.0])
+    verts = np.vstack([bot, top, c, ct])
+    faces = []
+    for i in range(n):
+        j = (i + 1) % n
+        faces.append([i, j, n + j])
+        faces.append([i, n + j, n + i])
+    ring_pts = np.column_stack([R * np.cos(th), R * np.sin(th)])
+    tri = _triangulate_ring(ring_pts)
+    for a, b, c2 in tri:
+        a, b, c2 = int(a), int(b), int(c2)
+        faces.append([n + a, n + b, n + c2])   # 顶盖
+        faces.append([a, c2, b])               # 底盖（反向绕序）
+    m = trimesh.Trimesh(vertices=verts, faces=np.array(faces), process=False)
+    if m.volume < 0:
+        m.invert()
+    gl._ensure_normals(m)
+    m.visual = trimesh.visual.ColorVisuals(m, vertex_colors=color)
+    return m
+
+
+def _irregular_dome(color, th, R, y0, h):
+    """不规则穹帽：底环 @ y0，顶点 @ y0+h（与草地轮廓同 θ 同 R，俯视贴合不规则草地）。"""
+    n = len(R)
+    ring = np.column_stack([R * np.cos(th), np.full(n, y0), R * np.sin(th)])
+    apex = np.array([0.0, y0 + h, 0.0])
+    verts = np.vstack([ring, apex])
+    faces = []
+    for i in range(n):
+        j = (i + 1) % n
+        faces.append([i, j, n])
+    m = trimesh.Trimesh(vertices=verts, faces=np.array(faces), process=False)
+    if m.face_normals.mean(axis=0)[1] < 0:
+        m.invert()
     gl._ensure_normals(m)
     m.visual = trimesh.visual.ColorVisuals(m, vertex_colors=color)
     return m
@@ -303,42 +467,51 @@ def _gen_dock(rng, length=1.4):
 
 
 def gen_island(idx, table=None):
-    """自下而上：水下基座(0.3m) → 沙滩环(露出水面) → 草地顶(浅帽) → 可选山丘/岩石/棕榈/小屋码头"""
+    """自下而上：水下基座(0.3m) → 沙滩环(露出水面) → 草地顶(浅帽) → 可选山丘/岩石/棕榈/小屋码头。
+    岛轮廓不规则化：基座/沙滩/草地三层共用同一组抖动半径（同 θ 同 r），层间半径差保持
+    （基座 +1.5m、沙滩环 -0.8m），俯视像真实岛屿：外圈水底浅滩 → 沙滩 → 草地。"""
     if table is None:
         table = ISLAND_TABLE
     p = table[idx - 1]
     rng = gl.rng_from_seed(2000 + idx * 7)
     r, beach_h, grass_h = p["r"], p["beach"], p["grass"]
     base_h = 0.3
+    # 主岛 03 抖动幅度取更高区间（更显眼），其余 0.05-0.18
+    amp_lo, amp_hi = (0.09, 0.18) if idx == 3 else (0.05, 0.16)
+    th, R = _island_footprint(r, rng, amp_lo=amp_lo, amp_hi=amp_hi)
     parts = []
 
-    # ① 水下基座（0 → 0.3m）
+    # ① 水下基座（0 → 0.3m）：外扩 +1.5m，底稍收（斜坡）
     base_c = ISLAND_BASE_BLUE if p["base"] == "blue" else ISLAND_BASE
-    base = _frustum(_j(base_c, 0.03, rng), r_bot=r * 0.9, r_top=r, height=base_h, y0=0.0, sections=20)
+    base = _irregular_layer(_j(base_c, 0.03, rng), th, R + ISLAND_BASE_OFF,
+                            y0=0.0, h=base_h, r_bot=0.9, r_top=1.0)
     parts.append(("island_base", base))
 
-    # ② 沙滩环（0.3 → 0.3+beach_h，米黄，露出水面）
-    sand = _frustum(_j(ISLAND_SAND, 0.03, rng), r_bot=r, r_top=r * 0.72, height=beach_h, y0=base_h, sections=20)
+    # ② 沙滩环（0.3 → 0.3+beach_h，米黄，露出水面）：内收 -0.8m，顶稍收（沙滩缓坡）
+    sand = _irregular_layer(_j(ISLAND_SAND, 0.03, rng), th, R + ISLAND_SAND_OFF,
+                            y0=base_h, h=beach_h, r_bot=1.0, r_top=0.72)
     parts.append(("island_sand", sand))
 
-    # ③ 草地顶（圆柱台 + 浅穹帽，总厚 grass_h）
+    # ③ 草地顶（不规则柱台 + 不规则穹帽，总厚 grass_h）
     grass_top = base_h + beach_h
-    grass_r = r * 0.55
-    grass_base = _vcyl(_j(ISLAND_GRASS, 0.03, rng), radius=grass_r, height=grass_h * 0.55, sections=16)
-    grass_base.apply_translation([0, grass_top + grass_h * 0.275, 0])
+    grass_r = 0.55 * R
+    grass_cyl_h = grass_h * 0.55
+    grass_base = _irregular_layer(_j(ISLAND_GRASS, 0.03, rng), th, grass_r,
+                                  y0=grass_top, h=grass_cyl_h, r_bot=1.0, r_top=1.0)
     parts.append(("island_grass_base", grass_base))
     dome_h = grass_h * 0.45
-    dome = _sphere(_j(ISLAND_GRASS, 0.03, rng), radius=grass_r, subdiv=2, scale=[1.0, dome_h / (2 * grass_r), 1.0])
-    dome.apply_translation([0, grass_top + grass_h * 0.55 + dome_h / 2, 0])
+    dome = _irregular_dome(_j(ISLAND_GRASS, 0.03, rng), th, grass_r,
+                           y0=grass_top + grass_cyl_h, h=dome_h)
     parts.append(("island_grass_dome", dome))
     # 草地顶面 y（山丘/棕榈/小屋落点基准）
     grass_surface = grass_top + grass_h
 
     # ④ 山丘（草绿圆丘，高 0.5-1.5m）
+    grass_r_mean = r * 0.55
     for i in range(p["hills"]):
         h = rng.uniform(0.5, min(1.5, r * 0.32))
         ang = rng.uniform(0, 2 * np.pi)
-        dist = rng.uniform(0, grass_r * 0.45)
+        dist = rng.uniform(0, grass_r_mean * 0.45)
         hill = _sphere(_j(ISLAND_HILL, 0.04, rng), radius=h * 0.55, subdiv=2, scale=[1.0, 0.95, 1.0])
         hill.apply_translation([dist * np.cos(ang), grass_surface + h * 0.28, dist * np.sin(ang)])
         parts.append((f"hill{i}", hill))
@@ -356,7 +529,7 @@ def gen_island(idx, table=None):
     # ⑥ 棕榈树
     for i in range(p["palms"]):
         ang = rng.uniform(0, 2 * np.pi)
-        dist = rng.uniform(0, grass_r * 0.5)
+        dist = rng.uniform(0, grass_r_mean * 0.5)
         trunk_h = rng.uniform(0.9, 1.2)
         palm = _gen_palm(rng, trunk_h=trunk_h)
         for nm, m in palm:
@@ -367,7 +540,7 @@ def gen_island(idx, table=None):
     if p["hut"]:
         hut = _gen_hut(rng, scale=0.8)
         for nm, m in hut:
-            m.apply_translation([grass_r * 0.25, grass_surface, 0])
+            m.apply_translation([grass_r_mean * 0.25, grass_surface, 0])
             parts.append((nm, m))
     if p["dock"]:
         dock = _gen_dock(rng, length=1.4)
@@ -643,6 +816,57 @@ def generate(assets_dir=None, verify=True):
     return results
 
 
+def terrain_assets():
+    """仅 17 个地图资产（1 海面 + 16 岛），供 terrain-only 流程使用"""
+    items = []
+    items.append(("terrain_ocean", "terrain/terrain_ocean.glb", gen_ocean))
+    for idx in range(1, 17):
+        items.append((f"terrain_island_{idx:02d}", f"terrain/terrain_island_{idx:02d}.glb",
+                      lambda i=idx: gen_island(i)))
+    return items
+
+
+def generate_terrain(assets_dir=None, verify=True):
+    """只生成 17 个地图 GLB（terrain_ocean + terrain_island_01..16），覆盖同名文件。
+    不触碰矿藏/渲染代码。返回 results。"""
+    if assets_dir is None:
+        assets_dir = os.path.join(os.path.dirname(os.path.dirname(BASE)), "assets")
+    os.makedirs(os.path.join(assets_dir, "terrain"), exist_ok=True)
+    results = {}
+    for aid, rel, fn in terrain_assets():
+        parts = fn()
+        _scale_parts(parts, SCALE)
+        path = os.path.join(assets_dir, rel)
+        gl.export_scene(parts, path)
+        size_kb = os.path.getsize(path) / 1024
+        ok, found = verify_glb(path) if verify else (None, None)
+        lo, hi = bounds_of(path)
+        results[aid] = {"path": path, "rel": rel, "sizeKB": round(size_kb, 1),
+                        "verify": ok, "found": found, "bounds": (lo.tolist(), hi.tolist())}
+    return results
+
+
+def island_irregularity(path, n_dir=36):
+    """验证岛不规则：从岛几何在 XZ 平面扫 n_dir 个方向量取半径（到轮廓的最大投影距离），
+    返回 (max_radius_m, min_radius_m, ratio)。ratio>1.15 证明不是正圆。
+    以 footprint 层（水下基座外沿）为准——该层决定岛的最外轮廓。"""
+    scene = trimesh.load(path)
+    geoms = list(scene.geometry.values()) if hasattr(scene, "geometry") and scene.geometry else [scene]
+    pts = np.vstack([g.vertices for g in geoms])
+    x, z = pts[:, 0], pts[:, 2]
+    # 质心（XZ）
+    cx, cz = x.mean(), z.mean()
+    ang = np.linspace(0, 2 * np.pi, n_dir, endpoint=False)
+    radii = []
+    for a in ang:
+        ux, uz = np.cos(a), np.sin(a)
+        # 该方向轮廓半径 = 边界点在该方向的最大投影（星形轮廓下即边界半径）
+        proj = (x - cx) * ux + (z - cz) * uz
+        radii.append(proj.max())
+    radii = np.array(radii)
+    return float(radii.max()), float(radii.min()), float(radii.max() / max(radii.min(), 1e-9))
+
+
 # ================ manifest 更新 ================
 
 def _entry_json(aid, rel, did, name, desc, collision, size_kb):
@@ -719,6 +943,54 @@ def update_preview_html(root, results):
 def _re_search_manifest(html):
     import re
     return re.search(r'<script id="manifest-data" type="application/json">(.*?)</script>', html, re.S)
+
+
+def update_manifest_size_only(assets_dir, results):
+    """只更新 17 个地图资产在 manifest.json 中的 sizeKB（assetId/path 等其余字段不动）。
+    严格满足交付要求：manifest 仅 sizeKB 变化。"""
+    path = os.path.join(assets_dir, "manifest.json")
+    with open(path, encoding="utf-8") as f:
+        manifest = _json.load(f)
+    by_id = {a["assetId"]: a for a in manifest["assets"]}
+    updated = 0
+    for aid, rel, fn in terrain_assets():
+        if aid not in by_id:
+            raise RuntimeError(f"manifest 缺少资产 {aid}（交付要求 assetId/path 不变，不应新增）")
+        old = by_id[aid].get("sizeKB")
+        by_id[aid]["sizeKB"] = results[aid]["sizeKB"]
+        if old != results[aid]["sizeKB"]:
+            updated += 1
+    with open(path, "w", encoding="utf-8") as f:
+        _json.dump(manifest, f, ensure_ascii=False, indent=2)
+    return updated
+
+
+def main_terrain_only():
+    """2026 第二轮优化专用入口：只重生成 17 个地图 GLB + 只更新 manifest.json 的 sizeKB。
+    不触碰 demo_map.html / preview.html / 任何渲染代码；矿藏不重生成。"""
+    root = os.path.dirname(os.path.dirname(BASE))
+    assets_dir = os.path.join(root, "assets")
+    print("== 生成 17 个地图 GLB（不规则岛 + 提饱和） ==")
+    results = generate_terrain(assets_dir, verify=True)
+    fail = [aid for aid, r in results.items() if not r.get("verify")]
+    for aid, r in results.items():
+        mark = "OK" if r.get("verify") else "FAIL"
+        lo, hi = r["bounds"]
+        print(f"  [{mark}] {aid:26s} {r['sizeKB']:7.1f}KB  bounds=({lo[0]:.2f},{lo[1]:.2f},{lo[2]:.2f})~({hi[0]:.2f},{hi[1]:.2f},{hi[2]:.2f})")
+    print(f"\n== 验证 ==  {len(results) - len(fail)}/{len(results)} 通过  NORMAL/COLOR_0 检查")
+    if fail:
+        print("  失败:", fail)
+
+    print("\n== 不规则验证（36 方向半径比 >1.15 即非正圆） ==")
+    for idx in (1, 3, 7):
+        p = os.path.join(assets_dir, "terrain", f"terrain_island_{idx:02d}.glb")
+        mx, mn, ratio = island_irregularity(p)
+        print(f"  岛{idx:02d}: max/min 半径 = {mx:.1f}/{mn:.1f} m  比值 = {ratio:.3f}")
+
+    print("\n== 更新 manifest.json（仅 sizeKB） ==")
+    n = update_manifest_size_only(assets_dir, results)
+    print(f"  sizeKB 变化 {n} 条（assetId/path 未动，未触碰 preview.html）")
+    return results
 
 
 def main():

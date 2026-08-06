@@ -120,9 +120,9 @@ const ORE_LAYOUT = [
 
 async function init() {
   try {
-    const ocean = await loadGLB('assets/terrain/terrain_ocean.glb');
-    ocean.position.set(0, 0, 0);
-    scene.add(ocean);
+    // 动态海面：自定义 ShaderMaterial（顶点波浪 + 波光高光 + 浪花渐变）
+    const oceanMesh = createDynamicOcean(400);  // 半径 400m 覆盖 800m 海面
+    scene.add(oceanMesh);
     statusEl.textContent = '加载 5 岛...';
 
     for (const it of ISLAND_LAYOUT) {
@@ -131,6 +131,8 @@ async function init() {
       m.position.set(it.r * Math.cos(rad), 0, it.r * Math.sin(rad));
       m.rotation.y = rad + Math.PI/2;
       scene.add(m);
+      // 每个岛沙滩边缘生成白色浪花环（动态起伏）
+      scene.add(createFoamRing(it.r * Math.cos(rad), it.r * Math.sin(rad), 14 + it.id.length));  // 半径按岛大小近似
     }
     statusEl.textContent = '加载 6 矿...';
 
@@ -140,15 +142,118 @@ async function init() {
       scene.add(m);
     }
 
-    statusEl.textContent = '✅ 就绪：1 海面 + 5 岛 + 6 矿';
+    statusEl.textContent = '✅ 就绪：动态海面 + 5 岛（不规则待生成）+ 6 矿 + 沙滩浪花';
     await new Promise(r => setTimeout(r, 1500));
   } catch (e) {
     statusEl.textContent = '❌ ' + e.message;
   }
 }
 
+// ============ 动态海面（Shader：顶点波浪 + 高光 + 泡沫渐变） ============
+function createDynamicOcean(radius) {
+  const geo = new THREE.PlaneGeometry(radius * 2, radius * 2, 128, 128);
+  geo.rotateX(-Math.PI / 2);
+  const mat = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uDeep: { value: new THREE.Color(0x1F6FA8) },   // 深海蓝（高饱和）
+      uShallow: { value: new THREE.Color(0x4FA8D8) }, // 浅水
+      uFoam: { value: new THREE.Color(0xE8F4FA) },   // 浪花白
+      uLightDir: { value: new THREE.Vector3(0.5, 1, 0.3).normalize() },
+    },
+    vertexShader: `
+      uniform float uTime;
+      varying vec2 vUv;
+      varying vec3 vWorldPos;
+      varying float vWave;
+      void main() {
+        vUv = uv;
+        vec3 p = position;
+        // 多层正弦波叠加（波浪起伏）
+        float w1 = sin(p.x * 0.05 + uTime * 1.2) * cos(p.z * 0.04 + uTime * 0.9) * 0.6;
+        float w2 = sin(p.x * 0.12 + uTime * 2.0) * 0.3;
+        float w3 = cos(p.z * 0.1 - uTime * 1.6) * 0.25;
+        float w = w1 + w2 + w3;
+        vWave = w;
+        p.y = w;
+        vWorldPos = (modelMatrix * vec4(p, 1.0)).xyz;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 uDeep;
+      uniform vec3 uShallow;
+      uniform vec3 uFoam;
+      uniform vec3 uLightDir;
+      uniform float uTime;
+      varying vec2 vUv;
+      varying vec3 vWorldPos;
+      varying float vWave;
+      void main() {
+        // 中心深、边缘浅（渐变）
+        float d = length(vUv - 0.5) * 2.0;
+        vec3 col = mix(uDeep, uShallow, smoothstep(0.3, 1.0, d));
+        // 浪花白点（波峰处 + 时间漂移）
+        float foam = smoothstep(0.5, 0.8, vWave + 0.3);
+        // 波光高光（太阳方向）
+        vec3 n = normalize(vec3(-sin(vWave*2.0), 1.0, -cos(vWave*1.5)));
+        float spec = pow(max(dot(n, uLightDir), 0.0), 24.0);
+        // 边缘泡沫线（模拟拍岸白沫，随时间漂）
+        float edge = smoothstep(0.93, 1.0, d) * (0.6 + 0.4 * sin(uTime * 1.8));
+        col = mix(col, uFoam, foam * 0.35);
+        col += uFoam * spec * 0.55;
+        col = mix(col, uFoam, edge * 0.7);
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `,
+    side: THREE.DoubleSide,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.receiveShadow = true;
+  // 注册到动画循环更新 uTime
+  window.__oceanMat = mat;
+  return mesh;
+}
+
+// ============ 沙滩浪花环（白色半透明，动态起伏） ============
+function createFoamRing(x, z, baseRadius) {
+  const group = new THREE.Group();
+  group.position.set(x, 0.35, z);
+  // 内圈（近沙滩，白色浓）
+  const inner = new THREE.Mesh(
+    new THREE.RingGeometry(baseRadius * 0.95, baseRadius * 1.05, 64),
+    new THREE.MeshBasicMaterial({ color: 0xE8F4FA, transparent: true, opacity: 0.85, side: THREE.DoubleSide })
+  );
+  inner.rotation.x = -Math.PI / 2;
+  // 外圈（泡沫扩散，淡）
+  const outer = new THREE.Mesh(
+    new THREE.RingGeometry(baseRadius * 1.05, baseRadius * 1.15, 64),
+    new THREE.MeshBasicMaterial({ color: 0xCFEAF8, transparent: true, opacity: 0.45, side: THREE.DoubleSide })
+  );
+  outer.rotation.x = -Math.PI / 2;
+  group.add(inner, outer);
+  // 动画：上下起伏 + 透明度呼吸
+  group.userData = { baseRadius, t: Math.random() * Math.PI * 2 };
+  (window.__foamRings = window.__foamRings || []).push(group);
+  return group;
+}
+
+let animTime = 0;
 function animate() {
   requestAnimationFrame(animate);
+  animTime += 0.016;
+  // 海面波浪
+  if (window.__oceanMat) window.__oceanMat.uniforms.uTime.value = animTime;
+  // 浪花起伏
+  if (window.__foamRings) {
+    for (const ring of window.__foamRings) {
+      ring.userData.t += 0.02;
+      const wave = Math.sin(ring.userData.t) * 0.15;
+      ring.position.y = 0.35 + wave;
+      ring.children[0].material.opacity = 0.65 + Math.sin(ring.userData.t * 1.3) * 0.2;
+      ring.children[1].material.opacity = 0.35 + Math.sin(ring.userData.t * 0.9 + 1) * 0.12;
+    }
+  }
   controls.update();
   renderer.render(scene, camera);
 }
