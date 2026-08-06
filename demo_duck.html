@@ -66,9 +66,13 @@ scene.add(ground);
 
 const loader = new GLTFLoader();
 const statusEl = document.getElementById('status');
-let duck = null, body = null, footL = null, footR = null;
+let duck = null, pivot = null, body = null;
 let mode = 'idle', time = 0;
 
+// ============ 低头动作：以脚为圆心的枢轴旋转（标准方法） ============
+// 方法说明：把鸭子放进一个 pivot Group，pivot 原点 = 鸭子脚底。
+// 低头 = pivot.rotation.x 从 0 平滑插值到目标角度（绕脚底前倾，看起来像弯腰低头）。
+// 这样「脚着地不动，身体绕脚转动」就是真实弯腰，而不是整体位移。
 async function init() {
   try {
     // 直接加载混元 3D 鸭子（保留 PBR baseColorTexture 颜色：黄嘴/黑眼/白身）
@@ -88,10 +92,14 @@ async function init() {
         }
       }
     });
-    scene.add(duck);
-    body = duck;  // 整只鸭子作为 body（混元自带腿，分离式结构在结构上仍可走/低头）
+    // pivot 组：原点 = 鸭子脚底（混元模型 bounds min_y = 0）
+    pivot = new THREE.Group();
+    pivot.position.set(0, 0, 0);
+    scene.add(pivot);
+    pivot.add(duck);  // 鸭子作为 pivot 子节点 → 绕脚底旋转
+    body = duck;
     statusEl.textContent = '✅ 混元 3D 鸭子就绪（HY3 AI 真 3D 模型，保留 PBR 颜色：黄嘴+黑眼+白身）';
-    console.log('body:', !!body);
+    console.log('body:', !!body, 'pivot:', !!pivot);
   } catch (e) {
     statusEl.textContent = '❌ ' + e.message;
     console.error(e);
@@ -104,22 +112,30 @@ function setMode(m) {
   document.getElementById(m === 'walk' ? 'btnWalk' : m === 'eat' ? 'btnEat' : 'btnIdle').classList.add('active');
 }
 
+// 平滑插值（lerp）：让动作"动起来"而不是瞬间切换
+const lerp = (a, b, t) => a + (b - a) * t;
+
 function animateDuck(dt) {
-  if (!duck) return;
+  if (!duck || !pivot) return;
   if (mode === 'walk') {
-    // 走路：鸭子整体上下浮动 + 微微前倾摆动（混元鸭子整只作为整体）
+    // 走路：鸭子上下浮动 + 微侧摆（pivot 保持直立）
+    pivot.rotation.x = lerp(pivot.rotation.x, 0, 0.1);
     duck.position.y = Math.abs(Math.sin(time * 6)) * 0.06;
-    duck.rotation.z = Math.sin(time * 6) * 0.05;  // 微侧摆
+    duck.rotation.z = Math.sin(time * 6) * 0.05;
   } else if (mode === 'eat') {
-    // 低头吃食：鸭子整体前倾
-    duck.position.y = 0;
-    duck.rotation.z = 0;
-    duck.rotation.x = 0.6;
+    // 低头吃食：以脚底为圆心，身体绕 pivot 平滑前倾（动态动作）
+    duck.position.y = lerp(duck.position.y, 0, 0.1);
+    duck.rotation.z = lerp(duck.rotation.z, 0, 0.1);
+    pivot.rotation.x = lerp(pivot.rotation.x, 0.7, 0.08);  // 平滑转到 40° 低头
+    // 低头到位后微微点头（更有生命力）
+    if (pivot.rotation.x > 0.6) {
+      pivot.rotation.x += Math.sin(time * 4) * 0.01;
+    }
   } else {
-    // 待机
-    duck.position.y = 0;
-    duck.rotation.x = 0;
-    duck.rotation.z = 0;
+    // 待机：平滑回到直立
+    pivot.rotation.x = lerp(pivot.rotation.x, 0, 0.1);
+    duck.position.y = lerp(duck.position.y, 0, 0.1);
+    duck.rotation.z = lerp(duck.rotation.z, 0, 0.1);
   }
 }
 
@@ -131,6 +147,9 @@ function animate() {
   lastT = now; time += dt;
   animateDuck(dt);
   controls.update();
+  // 调试钩子：记录 pivot 旋转角度（验证低头是动画）
+  window.__pivotRotX = pivot ? pivot.rotation.x : -1;
+
   renderer.render(scene, camera);
 }
 animate();
