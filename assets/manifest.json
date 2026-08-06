@@ -3958,6 +3958,734 @@
       ],
       "sizeKB": 36.8,
       "loadPriority": 0
+    },
+    {
+      "assetId": "terrain_ocean",
+      "designId": "MAP-01",
+      "path": "terrain/terrain_ocean.glb",
+      "category": "terrain",
+      "priority": "P1",
+      "name": "海洋水面",
+      "desc": "40×40m 海面 + 波光斑块",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "box",
+        "params": {
+          "hx": 20,
+          "hy": 0.05,
+          "hz": 20
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "terrain/terrain_ocean.glb"
+        }
+      ],
+      "sizeKB": 109.6,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "terrain_island_01",
+      "designId": "MAP-02",
+      "path": "terrain/terrain_island_01.glb",
+      "category": "terrain",
+      "priority": "P1",
+      "name": "岛屿-01",
+      "desc": "岛屿 r=4.0m 沙滩0.3m",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "box",
+        "params": {
+          "hx": 4.0,
+          "hy": 1.25,
+          "hz": 4.0
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "terrain/terrain_island_01.glb"
+        }
+      ],
+      "sizeKB": 27.7,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "terrain_island_02",
+      "designId": "MAP-03",
+      "path": "terrain/terrain_island_02.glb",
+      "category": "terrain",
+      "priority": "P1",
+      "name": "岛屿-02",
+      "desc": "岛屿 r=3.5m 沙滩0.28m",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "box",
+        "params": {
+          "hx": 3.5,
+          "hy": 1.25,
+          "hz": 3.5
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "terrain/terrain_island_02.glb"
+        }
+      ],
+      "sizeKB": 27.7,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "terrain_island_03",
+      "designId": "MAP-04",
+      "path": "terrain/terrain_island_03.glb",
+      "category": "terrain",
+      "priority": "P1",
+      "name": "岛屿-03",
+      "desc": "岛屿 r=5.0m 沙滩0.3m",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "box",
+        "params": {
+          "hx": 5.0,
+          "hy": 1.25,
+          "hz": 5.0
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "terrain/terrain_island_03.glb"
+        }
+      ],
+      "sizeKB": 32.5,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "terrain_island_04",
+      "designId": "MAP-05",
+      "path": "terrain/terrain_island_04.glb",
+      "category": "terrain",
+      "priority": "P1",
+      "name": "岛屿-04",
+      "desc": "岛屿 r=3.25m 沙滩0.26m",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "box",
+        "params": {
+          "hx": 3.25,
+          "hy": 1.25,
+          "hz": 3.25
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "terrain/terrain_island_04.glb"
+        }
+      ],
+      "sizeKB": 22.2,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "terrain_island_05",
+      "designId": "MAP-06",
+      "path": "terrain/terrain_island_05.glb",
+      "category": "terrain",
+      "priority": "P1",
+      "name": "岛屿-05",
+      "desc": "岛屿 r=3.75m 沙滩0.28m",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "box",
+        "params": {
+          "hx": 3.75,
+          "hy": 1.25,
+          "hz": 3.75
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "terrain/terrain_island_05.glb"
+        }
+      ],
+      "sizeKB": 27.7,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "terrain_island_06",
+      "designId": "MAP-07",
+      "path": "terrain/terrain_island_06.glb",
+      "category": "terrain",
+      "priority": "P1",
+      "name": "岛屿-06",
+      "desc": "岛屿 r=3.0m 沙滩0.25m",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "box",
+        "params": {
+          "hx": 3.0,
+          "hy": 1.25,
+          "hz": 3.0
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "terrain/terrain_island_06.glb"
+        }
+      ],
+      "sizeKB": 22.4,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "terrain_island_07",
+      "designId": "MAP-08",
+      "path": "terrain/terrain_island_07.glb",
+      "category": "terrain",
+      "priority": "P1",
+      "name": "岛屿-07",
+      "desc": "岛屿 r=2.75m 沙滩0.24m",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "box",
+        "params": {
+          "hx": 2.75,
+          "hy": 1.25,
+          "hz": 2.75
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "terrain/terrain_island_07.glb"
+        }
+      ],
+      "sizeKB": 22.4,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "terrain_island_08",
+      "designId": "MAP-09",
+      "path": "terrain/terrain_island_08.glb",
+      "category": "terrain",
+      "priority": "P1",
+      "name": "岛屿-08",
+      "desc": "岛屿 r=2.5m 沙滩0.23m",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "box",
+        "params": {
+          "hx": 2.5,
+          "hy": 1.25,
+          "hz": 2.5
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "terrain/terrain_island_08.glb"
+        }
+      ],
+      "sizeKB": 22.4,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "terrain_island_09",
+      "designId": "MAP-10",
+      "path": "terrain/terrain_island_09.glb",
+      "category": "terrain",
+      "priority": "P1",
+      "name": "岛屿-09",
+      "desc": "岛屿 r=2.4m 沙滩0.22m",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "box",
+        "params": {
+          "hx": 2.4,
+          "hy": 1.25,
+          "hz": 2.4
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "terrain/terrain_island_09.glb"
+        }
+      ],
+      "sizeKB": 22.2,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "terrain_island_10",
+      "designId": "MAP-11",
+      "path": "terrain/terrain_island_10.glb",
+      "category": "terrain",
+      "priority": "P1",
+      "name": "岛屿-10",
+      "desc": "岛屿 r=2.25m 沙滩0.21m",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "box",
+        "params": {
+          "hx": 2.25,
+          "hy": 1.25,
+          "hz": 2.25
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "terrain/terrain_island_10.glb"
+        }
+      ],
+      "sizeKB": 24.2,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "terrain_island_11",
+      "designId": "MAP-12",
+      "path": "terrain/terrain_island_11.glb",
+      "category": "terrain",
+      "priority": "P1",
+      "name": "岛屿-11",
+      "desc": "岛屿 r=2.1m 沙滩0.2m",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "box",
+        "params": {
+          "hx": 2.1,
+          "hy": 1.25,
+          "hz": 2.1
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "terrain/terrain_island_11.glb"
+        }
+      ],
+      "sizeKB": 22.2,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "terrain_island_12",
+      "designId": "MAP-13",
+      "path": "terrain/terrain_island_12.glb",
+      "category": "terrain",
+      "priority": "P1",
+      "name": "岛屿-12",
+      "desc": "岛屿 r=2.0m 沙滩0.2m",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "box",
+        "params": {
+          "hx": 2.0,
+          "hy": 1.25,
+          "hz": 2.0
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "terrain/terrain_island_12.glb"
+        }
+      ],
+      "sizeKB": 24.1,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "terrain_island_13",
+      "designId": "MAP-14",
+      "path": "terrain/terrain_island_13.glb",
+      "category": "terrain",
+      "priority": "P1",
+      "name": "岛屿-13",
+      "desc": "岛屿 r=1.9m 沙滩0.19m",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "box",
+        "params": {
+          "hx": 1.9,
+          "hy": 1.25,
+          "hz": 1.9
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "terrain/terrain_island_13.glb"
+        }
+      ],
+      "sizeKB": 44.0,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "terrain_island_14",
+      "designId": "MAP-15",
+      "path": "terrain/terrain_island_14.glb",
+      "category": "terrain",
+      "priority": "P1",
+      "name": "岛屿-14",
+      "desc": "岛屿 r=1.75m 沙滩0.18m",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "box",
+        "params": {
+          "hx": 1.75,
+          "hy": 1.25,
+          "hz": 1.75
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "terrain/terrain_island_14.glb"
+        }
+      ],
+      "sizeKB": 44.4,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "terrain_island_15",
+      "designId": "MAP-16",
+      "path": "terrain/terrain_island_15.glb",
+      "category": "terrain",
+      "priority": "P1",
+      "name": "岛屿-15",
+      "desc": "岛屿 r=1.6m 沙滩0.17m",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "box",
+        "params": {
+          "hx": 1.6,
+          "hy": 1.25,
+          "hz": 1.6
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "terrain/terrain_island_15.glb"
+        }
+      ],
+      "sizeKB": 20.5,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "terrain_island_16",
+      "designId": "MAP-17",
+      "path": "terrain/terrain_island_16.glb",
+      "category": "terrain",
+      "priority": "P1",
+      "name": "岛屿-16",
+      "desc": "岛屿 r=1.5m 沙滩0.16m",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "box",
+        "params": {
+          "hx": 1.5,
+          "hy": 1.25,
+          "hz": 1.5
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "terrain/terrain_island_16.glb"
+        }
+      ],
+      "sizeKB": 28.6,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "ore_copper_small",
+      "designId": "ORE-01",
+      "path": "props/ore_copper_small.glb",
+      "category": "prop",
+      "priority": "P1",
+      "name": "铜矿-小型",
+      "desc": "铜矿 小型矿藏",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "box",
+        "params": {
+          "hx": 0.2,
+          "hy": 0.125,
+          "hz": 0.2
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "props/ore_copper_small.glb"
+        }
+      ],
+      "sizeKB": 19.5,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "ore_copper_medium",
+      "designId": "ORE-02",
+      "path": "props/ore_copper_medium.glb",
+      "category": "prop",
+      "priority": "P1",
+      "name": "铜矿-中型",
+      "desc": "铜矿 中型矿藏",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "box",
+        "params": {
+          "hx": 0.5,
+          "hy": 0.45,
+          "hz": 0.5
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "props/ore_copper_medium.glb"
+        }
+      ],
+      "sizeKB": 29.5,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "ore_copper_large",
+      "designId": "ORE-03",
+      "path": "props/ore_copper_large.glb",
+      "category": "prop",
+      "priority": "P1",
+      "name": "铜矿-大型",
+      "desc": "铜矿 大型矿藏",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "box",
+        "params": {
+          "hx": 1.0,
+          "hy": 1.1,
+          "hz": 1.0
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "props/ore_copper_large.glb"
+        }
+      ],
+      "sizeKB": 57.2,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "ore_silver_small",
+      "designId": "ORE-04",
+      "path": "props/ore_silver_small.glb",
+      "category": "prop",
+      "priority": "P1",
+      "name": "银矿-小型",
+      "desc": "银矿 小型矿藏",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "box",
+        "params": {
+          "hx": 0.2,
+          "hy": 0.125,
+          "hz": 0.2
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "props/ore_silver_small.glb"
+        }
+      ],
+      "sizeKB": 19.5,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "ore_silver_medium",
+      "designId": "ORE-05",
+      "path": "props/ore_silver_medium.glb",
+      "category": "prop",
+      "priority": "P1",
+      "name": "银矿-中型",
+      "desc": "银矿 中型矿藏",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "box",
+        "params": {
+          "hx": 0.5,
+          "hy": 0.45,
+          "hz": 0.5
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "props/ore_silver_medium.glb"
+        }
+      ],
+      "sizeKB": 29.5,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "ore_silver_large",
+      "designId": "ORE-06",
+      "path": "props/ore_silver_large.glb",
+      "category": "prop",
+      "priority": "P1",
+      "name": "银矿-大型",
+      "desc": "银矿 大型矿藏",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "box",
+        "params": {
+          "hx": 1.0,
+          "hy": 1.1,
+          "hz": 1.0
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "props/ore_silver_large.glb"
+        }
+      ],
+      "sizeKB": 57.2,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "ore_gold_small",
+      "designId": "ORE-07",
+      "path": "props/ore_gold_small.glb",
+      "category": "prop",
+      "priority": "P1",
+      "name": "金矿-小型",
+      "desc": "金矿 小型矿藏",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "box",
+        "params": {
+          "hx": 0.2,
+          "hy": 0.125,
+          "hz": 0.2
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "props/ore_gold_small.glb"
+        }
+      ],
+      "sizeKB": 19.5,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "ore_gold_medium",
+      "designId": "ORE-08",
+      "path": "props/ore_gold_medium.glb",
+      "category": "prop",
+      "priority": "P1",
+      "name": "金矿-中型",
+      "desc": "金矿 中型矿藏",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "box",
+        "params": {
+          "hx": 0.5,
+          "hy": 0.45,
+          "hz": 0.5
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "props/ore_gold_medium.glb"
+        }
+      ],
+      "sizeKB": 29.5,
+      "loadPriority": 0
+    },
+    {
+      "assetId": "ore_gold_large",
+      "designId": "ORE-09",
+      "path": "props/ore_gold_large.glb",
+      "category": "prop",
+      "priority": "P1",
+      "name": "金矿-大型",
+      "desc": "金矿 大型矿藏",
+      "source": "procedural",
+      "collision": {
+        "type": "fixed",
+        "shape": "box",
+        "params": {
+          "hx": 1.0,
+          "hy": 1.1,
+          "hz": 1.0
+        }
+      },
+      "animations": [],
+      "lodLevels": [
+        {
+          "level": 0,
+          "path": "props/ore_gold_large.glb"
+        }
+      ],
+      "sizeKB": 56.8,
+      "loadPriority": 0
     }
   ]
 }
