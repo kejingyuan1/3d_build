@@ -66,6 +66,11 @@ async function init() {
   try {
     const gltf = await loader.loadAsync('hy3_duck_skel.glb');
     duck = gltf.scene;
+    // 混元生成的鸭子是侧躺姿态（vertices Z 范围 [-1.07, 0] 全在负半轴）
+    // 修复：加 wrapper group X 旋转 -π/2，让鸭子从侧躺变站立
+    const wrapper = new THREE.Group();
+    wrapper.rotation.x = -Math.PI / 2;
+    scene.add(wrapper);
     duck.scale.setScalar(1.2);
     duck.traverse(o => {
       if (o.isMesh) {
@@ -76,8 +81,8 @@ async function init() {
         });
       }
     });
-    scene.add(duck);
-    // 骨骼动画
+    wrapper.add(duck);  // duck 放进 wrapper
+    // 骨骼动画（mixer 应用到 duck，wrapper 旋转不冲突）
     mixer = new THREE.AnimationMixer(duck);
     gltf.animations.forEach(a => { actions[a.name] = mixer.clipAction(a); });
     statusEl.textContent = '✅ 骨骼鸭子就绪 — 走路=腿关节摆动，低头=髋部前倾（真骨骼蒙皮）';
@@ -96,8 +101,17 @@ function setMode(m) {
   if (!mixer) return;
   // 停止所有，播放对应
   Object.values(actions).forEach(a => a.stop());
-  if (m === 'walk') { actions.walk.reset().setLoop(2200, true).play(); console.log('walk play, dur:', actions.walk._clip.duration); }
-  else if (m === 'eat') { actions.eat.reset().setLoop(2200, true).play(); console.log('eat play'); }
+  if (m === 'walk') {
+    actions.walk.reset();
+    actions.walk.setLoop(THREE.LoopRepeat, Infinity);
+    actions.walk.play();
+    console.log('walk play, dur:', actions.walk._clip.duration, 'loop:', actions.walk.loop);
+  } else if (m === 'eat') {
+    actions.eat.reset();
+    actions.eat.setLoop(THREE.LoopRepeat, Infinity);
+    actions.eat.play();
+    console.log('eat play, dur:', actions.eat._clip.duration, 'loop:', actions.eat.loop);
+  }
 }
 let lastT = performance.now();
 function animate() {
