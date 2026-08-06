@@ -2,8 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>分离式鸭子动画演示</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>真 3D 鸭子（Kenney CC0 角色）</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family:"Microsoft YaHei",sans-serif; background:#1a2332; color:#eee; overflow:hidden; }
@@ -17,24 +16,16 @@
   .btn.active { background:#4a9de0; border-color:#6cb8f0; color:#fff; }
   #status { position:absolute; bottom:14px; left:50%; transform:translateX(-50%); background:rgba(20,28,40,.8);
     border:1px solid rgba(255,255,255,.12); border-radius:10px; padding:8px 16px; font-size:13px; color:#b8c8dc; z-index:10; text-align:center; }
-  #loading { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:#1a2332; z-index:100; font-size:17px; color:#9fb3c8; }
 </style>
 </head>
 <body>
-  <div id="loading">加载鸭子模型...</div>
-  <div id="viewer"></div>
-  <div id="panel">
-    <button class="btn" id="btnWalk">🦆 走路</button>
-    <button class="btn" id="btnEat">🐛 低头吃食</button>
-    <button class="btn" id="btnIdle" class="active">🧍 待机</button>
-  </div>
-  <div id="status">加载中...</div>
-  <script>
-    // 提示用户：必须用 http:// 打开（file:// 协议会被 CORS 阻挡）
-    if (location.protocol === 'file:') {
-      document.body.innerHTML = '<div style="color:#fff;padding:40px;font-family:sans-serif;background:#1a2332;min-height:100vh;"><h2>⚠️ 鸭子 demo 加载失败</h2><p style="margin:20px 0;color:#9fb3c8;line-height:1.8;">浏览器禁止 file:// 协议加载本地 GLB（CORS 限制）。<br>请通过 HTTP 服务访问：<br><br><code style="background:#2b3a52;padding:8px 16px;border-radius:6px;color:#4a9de0;font-size:16px;">http://localhost:8898/demo_duck.html</code><br><br>服务器已在 8898 端口运行（node preview_server.js）。</p></div>';
-    }
-  </script>
+<div id="viewer"></div>
+<div id="panel">
+  <button class="btn" id="btnWalk">🦆 走路</button>
+  <button class="btn" id="btnEat">🐛 低头吃食</button>
+  <button class="btn" id="btnIdle" class="active">🧍 待机</button>
+</div>
+<div id="status">加载中...</div>
 
 <script type="importmap">
 { "imports": { "three": "./vendor/three/build/three.module.js",
@@ -48,159 +39,140 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 const viewer = document.getElementById('viewer');
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB);
+
 const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.1, 100);
-camera.position.set(1.5, 1.2, 2.5);  // 鸭子 scale 3x，合适距离看清贴图
-const renderer = new THREE.WebGLRenderer({ antialias:true });
+camera.position.set(1.5, 1.2, 2.5);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 viewer.appendChild(renderer.domElement);
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(0, 0.4, 0);
-controls.enableDamping = true;
 
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0.3, 0);
+controls.enableDamping = true;
+controls.maxPolarAngle = Math.PI / 2 - 0.02;
+
+// 灯光（半写实柔和）
 scene.add(new THREE.HemisphereLight(0xDFEBFF, 0xFFF0D0, 2.2));
-const sun = new THREE.DirectionalLight(0xFFF8E8, 3.0);
+const sun = new THREE.DirectionalLight(0xFFF8E8, 2.6);
 sun.position.set(5, 8, 4); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -2; sun.shadow.camera.right = 2;
+sun.shadow.camera.top = 2; sun.shadow.camera.bottom = -2;
 scene.add(sun);
-const fill = new THREE.DirectionalLight(0xCFE8FF, 1.4);  // 补光：避免暗面过黑
+const fill = new THREE.DirectionalLight(0xCFE8FF, 1.0);
 fill.position.set(-4, 3, -2);
 scene.add(fill);
 
-const ground = new THREE.Mesh(new THREE.CircleGeometry(4, 32), new THREE.MeshToonMaterial({ color: 0x8BC34A }));
-ground.rotation.x = -Math.PI/2; ground.receiveShadow = true;
+const ground = new THREE.Mesh(
+  new THREE.CircleGeometry(4, 32),
+  new THREE.MeshLambertMaterial({ color: 0x8BC34A })
+);
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true;
 scene.add(ground);
 
 const loader = new GLTFLoader();
 const statusEl = document.getElementById('status');
-let duck = null, mixer = null, mode = 'idle', time = 0;
+let duck = null, body = null, head = null, beak = null, footL = null, footR = null, wingL = null, wingR = null;
+let mode = 'idle', time = 0;
 
-function makeGradient() {
-  // 亮色 4 阶 toon：最暗 0.9 起（白色顶点色不会被压暗成灰）
-  const g = new Uint8Array([0xE6,0xE6,0xE6,0xFF, 0xF0,0xF0,0xF0,0xFF, 0xFA,0xFA,0xFA,0xFF, 0xFF,0xFF,0xFF,0xFF]);
-  const t = new THREE.DataTexture(g, 4, 1, THREE.RGBAFormat);
-  t.minFilter = t.magFilter = THREE.NearestFilter; return t;
-}
-
-function applyToon(root) {
-  root.traverse(o => {
-    if (o.isMesh) {
-      o.castShadow = o.receiveShadow = true;
-      // 3D 几何方案：HY3 贴图作为 baseColorTexture，让 3D 几何（capsule 身+头+嘴+腿）有半写实质感
-      o.material = new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true });
-    }
-  });
-}
-
-// 方案 B：加载 HY3 半写实贴图并映射到对应 mesh（按节点名区分）
-function applyHY3Textures(duckRoot, bodyTexUrl, footTexUrl, onDone) {
-  const texLoader = new THREE.TextureLoader();
-  let bodyTex = null, footTex = null;
-  const apply = () => {
-    if (!bodyTex || !footTex) return;
-    duckRoot.traverse(o => {
-      if (!o.isMesh) return;
-      // body/neck_group → 身体贴图；foot_l/foot_r → 脚贴图
-      if (o.name === 'body' || o.name === 'neck_group') {
-        o.material.map = bodyTex;
-        o.material.needsUpdate = true;
-      } else if (o.name === 'foot_l' || o.name === 'foot_r') {
-        o.material.map = footTex;
-        o.material.needsUpdate = true;
-      }
-    });
-    if (onDone) onDone();
-  };
-  texLoader.load(bodyTexUrl, t => { bodyTex = t; bodyTex.colorSpace = THREE.SRGBColorSpace; apply(); }, undefined, () => apply());
-  texLoader.load(footTexUrl, t => { footTex = t; footTex.colorSpace = THREE.SRGBColorSpace; apply(); }, undefined, () => apply());
+// 节点名映射（Kenney 模型：foot-1/foot1，不是 foot_l/foot_r）
+function findNode(root, name) {
+  let found = null;
+  root.traverse(o => { if (o.name === name) found = o; });
+  return found;
 }
 
 async function init() {
   try {
     const gltf = await loader.loadAsync('assets/animals/animal_duck_white.glb');
     duck = gltf.scene;
-    duck.scale.setScalar(3);  // 模型 0.4m → 1.2m 展示，贴图细节可见
-    applyToon(duck);
-    // 方案 B：HY3 半写实贴图映射（身体 + 脚分开贴）
-    applyHY3Textures(duck,
-      'generated-images/duck_semi_alpha.png',
-      'generated-images/duck_foot_alpha.png',
-      true   // 3D 几何版本：保留 body 白色（用 3D 几何色），贴图只影响颜色细节
-    );
-    // 走 3D 模式：贴图作为 baseColorTexture，覆盖 vertex color，让 HY3 皮克斯风纹理覆盖 3D 几何
+    duck.scale.setScalar(3);
+    // 让 Kenney 模型的 toon 着色柔和
     duck.traverse(o => {
       if (o.isMesh) {
-        o.material.vertexColors = false;  // 3D 几何模式下用贴图覆盖
-        o.material.color.setHex(0xffffff);
+        o.castShadow = o.receiveShadow = true;
+        // 保留模型自带的 baseColorTexture，Lambert 柔和光照
+        o.material = new THREE.MeshLambertMaterial({
+          color: 0xffffff,
+          map: o.material && (o.material.map || (o.material.pbrMetallicRoughness && o.material.pbrMetallicRoughness.baseColorTexture)) || null,
+        });
       }
     });
-    // 落在地面（锚点应为脚底 y=0）
     scene.add(duck);
-    window.__duck = duck;  // 调试句柄
-    window.__scene = scene;
+    // 缓存节点引用（用于动画）
+    body = findNode(duck, 'body');
+    head = findNode(duck, 'head');
+    beak = findNode(duck, 'beak');
+    footL = findNode(duck, 'foot-1');
+    footR = findNode(duck, 'foot1');
+    wingL = findNode(duck, 'wing-1');
+    wingR = findNode(duck, 'wing1');
+    window.__duck = duck;
     window.__camera = camera;
     window.__controls = controls;
-    window.__THREE = THREE;
-    // 展示节点结构
-    const parts = {};
-    duck.traverse(o => { if (o.name) parts[o.name] = o; });
-    console.log('鸭子节点:', Object.keys(parts).join(', '));
-    statusEl.textContent = '✅ 鸭子就绪 — 点击「走路」「低头吃食」按钮看分离式动作';
-    document.getElementById('loading').style.display = 'none';
+    statusEl.textContent = '✅ 真 3D 鸭子就绪（Kenney CC0 角色，11 mesh：body/neck/head/beak/2eyes/2wings/tail/2feet）';
   } catch (e) {
-    statusEl.textContent = '❌ 加载失败: ' + e.message;
-    console.error(e);
+    statusEl.textContent = '❌ ' + e.message;
   }
 }
 
 function setMode(m) {
   mode = m; time = 0;
   document.querySelectorAll('#panel .btn').forEach(b => b.classList.remove('active'));
-  document.getElementById(m === 'walk' ? 'btnWalk' : m === 'eat' ? 'btnEat' : 'btnIdle').classList.add('active');
+  const btn = m === 'walk' ? 'btnWalk' : m === 'eat' ? 'btnEat' : 'btnIdle';
+  document.getElementById(btn).classList.add('active');
 }
 
-// 动画驱动：分离式节点
+// 动画驱动
 function animateDuck(dt) {
   if (!duck) return;
-  const footL = duck.getObjectByName('foot_l');
-  const footR = duck.getObjectByName('foot_r');
-  const neck = duck.getObjectByName('neck_group');
-  if (!footL || !footR || !neck) return;
-
   if (mode === 'walk') {
-    // 走路：双脚交替前后摆 ±25°，身体微微上下
-    footL.rotation.x = Math.sin(time * 6) * 0.45;  // ~25°
-    footR.rotation.x = -Math.sin(time * 6) * 0.45;
-    neck.rotation.x = 0;
-    duck.position.y = Math.abs(Math.sin(time * 6)) * 0.03;
+    // 走路：body 上下微浮 + 双脚交替摆 + 翅膀拍动
+    if (body) body.position.y = 0.005 + Math.abs(Math.sin(time * 6)) * 0.05;
+    if (footL) footL.rotation.x = Math.sin(time * 6) * 0.3;
+    if (footR) footR.rotation.x = -Math.sin(time * 6) * 0.3;
+    if (wingL) wingL.rotation.x = Math.sin(time * 6) * 0.4;
+    if (wingR) wingR.rotation.x = Math.sin(time * 6) * 0.4;
+    if (head) head.rotation.x = 0;
   } else if (mode === 'eat') {
-    // 低头吃食：脖子下弯 45°，双脚并拢站立
-    footL.rotation.x = 0; footR.rotation.x = 0;
-    neck.rotation.x = 0.85;  // ~48° 低头
+    // 低头：head + beak 一起绕脖子底部旋转
+    if (body) body.position.y = 0.005;
+    if (footL) footL.rotation.x = 0;
+    if (footR) footR.rotation.x = 0;
+    if (wingL) wingL.rotation.x = 0;
+    if (wingR) wingR.rotation.x = 0;
+    if (head) head.rotation.x = 0.6;  // ~35° 低头
   } else {
     // 待机
-    footL.rotation.x = 0; footR.rotation.x = 0;
-    neck.rotation.x = 0;
+    if (body) body.position.y = 0.005;
+    if (footL) footL.rotation.x = 0;
+    if (footR) footR.rotation.x = 0;
+    if (wingL) wingL.rotation.x = 0;
+    if (wingR) wingR.rotation.x = 0;
+    if (head) head.rotation.x = 0;
   }
 }
 
-let last = performance.now();
+let lastT = performance.now();
 function animate() {
   requestAnimationFrame(animate);
   const now = performance.now();
-  const dt = Math.min(0.05, (now - last) / 1000);
-  last = now;
+  const dt = Math.min(0.05, (now - lastT) / 1000);
+  lastT = now;
   time += dt;
   animateDuck(dt);
   controls.update();
   renderer.render(scene, camera);
 }
+animate();
+window.addEventListener('resize', () => { camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
 
 document.getElementById('btnWalk').onclick = () => setMode('walk');
 document.getElementById('btnEat').onclick = () => setMode('eat');
 document.getElementById('btnIdle').onclick = () => setMode('idle');
-window.addEventListener('resize', () => { camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
-animate();
 init();
 </script>
 </body>
