@@ -7,18 +7,26 @@
 
 放大说明（2026 用户反馈：岛上要盖房+养殖+菜地，3-10m 太小）：
 - 全局 SCALE=20：所有几何在 1× 生成后统一坐标缩放 ×20（顶点数不变，GLB 体积基本不变）。
-  海面 40→800×800m、岛直径 3-10→60-200m（主岛 03 变 200m）、矿藏占地 0.4/1/2→8/20/40m。
+  海面 40→800×800m、岛直径 3-10→60-200m、矿藏占地 0.4/1/2→8/20/40m。
 - 海面例外：800m 大水面若沿用原 40 格细分太稀，波光斑块会糊；顶面细分 n=40→90（≈8.3k 顶点），
   底面 n=20→45，总顶点 ~10.4k（6000-12000 区间）。波光斑块坐标在 1× 空间定义、随 SCALE 等比放大。
 - 锚点不变：岛基座底 min_y=0（海面 y=0），海面顶面 y=0；矿藏同规则。
 
 2026 第二轮反馈（形状过于规则 / 饱和度不够）：
-- 岛屿不规则化：岛轮廓改为极坐标半径抖动 r(θ)=R*(1+Σamp*sin(kθ+φ))（k=3/5/7，amp 0.05-0.18，
-  每岛确定性种子），shapely buffer 平滑 + 直径封顶 ≤200m；沙滩环/草地顶/水下基座三层共用同一组
+- 岛屿不规则化：岛轮廓改为极坐标半径抖动 r(θ)=R*(1+Σamp*sin(kθ+φ))（k=3/5/7，amp 0.05-0.12，
+  每岛确定性种子），shapely buffer 平滑 + 直径封顶 ≤160m；沙滩环/草地顶/水下基座三层共用同一组
   抖动半径（同 θ 同 r，层间半径差：基座 +1.5m、沙滩环 -0.8m），俯视轮廓自然贴合。
 - 色彩饱和度：_sat() 将顶点色 sRGB→HSL，S×1.4（上限 1.0）、L×1.05（上限 0.95）后转回 RGB，
-  应用到沙滩/草地/山丘/岩石/基座/棕榈/小屋/码头；海面直接指定更深海蓝 0x1F6FA8 + 更亮波光。
+  应用到沙滩/草地/山丘/岩石/基座/棕榈/植被；海面直接指定更深海蓝 0x1F6FA8 + 更亮波光。
   矿藏矿石色（铜橙棕/银白/金黄）保持原有高饱和，不经过 _sat。
+
+2026 第三轮反馈（一人一岛：去主岛 + 每岛植被）：
+- 去主岛：16 岛统一规格，半径 55-75m（直径 110-150m），每岛仅 2-5m 微差（自然但不悬殊）；
+  抖动幅度 amp 统一 0.05-0.12，不再有主岛 03（原直径 200m）的特殊抬升；
+  沙滩/草地层厚度、山丘高度全部落在相近区间。
+- 统一植被模板（_island_plan，确定性）：每岛 = 草地 + 沙滩 + 2-3 棵矮树/棕榈 + 4-8 丛草
+  + 1-2 块岩石 + 1 山丘(50%) + 1-2 灌木/小花；锚点底部贴草地顶、限制在草地半径内避开沙滩环，
+  顶点色高饱和（草绿/深绿 0x2E8B57 / 棕榈绿 0x3E8E41 / 木棕 / 白 / 黄）。
 """
 import os
 import sys
@@ -103,6 +111,16 @@ HUT_WOOD      = _sat((0xA0, 0x7B, 0x4F, 255))  # 小屋/码头 更饱和木色
 HUT_ROOF      = _sat((0xC8, 0x4B, 0x3A, 255))  # 屋顶更鲜红
 DOCK_WOOD     = _sat((0x8D, 0x6E, 0x63, 255))  # 码头木板
 
+# 植被（第三轮新增，高饱和顶点色；草绿/深绿/棕/白/黄）
+GRASS_BLADE_LIGHT = _sat((0x6A, 0xC4, 0x4A, 255))  # 草叶 浅草绿
+GRASS_BLADE_DARK  = _sat((0x2E, 0x8B, 0x57, 255))  # 草叶 深草绿 0x2E8B57
+TREE_TRUNK        = _sat((0x8D, 0x6E, 0x63, 255))  # 树皮 木棕
+TREE_CROWN        = _sat((0x2E, 0x8B, 0x57, 255))  # 树冠 深绿 0x2E8B57
+PALM_GREEN        = _sat((0x3E, 0x8E, 0x41, 255))  # 棕榈绿 0x3E8E41（树冠变体）
+SHRUB_GREEN       = _sat((0x3A, 0x8C, 0x3E, 255))  # 灌木 深绿圆簇
+FLOWER_WHITE      = (0xF8, 0xF6, 0xF0, 255)        # 小白花
+FLOWER_YELLOW     = (0xFF, 0xD1, 0x66, 255)        # 小黄花
+
 # 矿藏：body 主色 / hi 高亮（保持原有高饱和，不经过 _sat）
 ORE_COLORS = {
     "copper": {"body": (0xC8, 0x75, 0x3A, 255), "hi": (0xB8, 0x6A, 0x30, 255)},
@@ -115,7 +133,7 @@ TIER_NAMES = {"small": "小型", "medium": "中型", "large": "大型"}
 # 全局放大系数：1× 几何在 generate() 统一坐标缩放（顶点数不变）
 SCALE = 20
 # 岛屿不规则化参数
-ISLAND_MAX_DIAM = 200.0          # 抖动后最大直径封顶（m，×SCALE 后），保证 bounds 60-200m
+ISLAND_MAX_DIAM = 160.0          # 抖动后最大直径封顶（m，×SCALE 后），保证 bounds 直径 100-160m
 ISLAND_BASE_OFF = 0.075          # 1× = 1.5m final：水下基座外扩（层间半径差）
 ISLAND_SAND_OFF = -0.04          # 1× = -0.8m final：沙滩环内收（层间半径差）
 
@@ -205,11 +223,11 @@ def _triangulate_ring(ring_pts):
     return np.array([[0, (i + 1) % n, (i + 2) % n] for i in range(n - 2)], dtype=np.int64)
 
 
-def _island_footprint(r, rng, n=None, amp_lo=0.05, amp_hi=0.18, max_diam=ISLAND_MAX_DIAM):
+def _island_footprint(r, rng, n=None, amp_lo=0.05, amp_hi=0.12, max_diam=ISLAND_MAX_DIAM):
     """岛轮廓：极坐标半径抖动 r(θ)=R*(1+amp1*sin(3θ+φ1)+amp2*sin(5θ+φ2)+amp3*sin(7θ+φ3))。
-    - amp 每岛随机（确定性种子），0.05-0.18 内取值；主岛 03 用更高区间（更显眼）
+    - amp 每岛随机（确定性种子），统一 0.05-0.12（无主岛特殊抬升；16 岛规格接近）
     - 控制点 24-36 个，shapely buffer 平滑（圆滑但非正圆）
-    - 直径封顶 max_diam（×SCALE 后），保证 bounds 60-200m
+    - 直径封顶 max_diam（×SCALE 后），保证 bounds 直径 100-160m
     返回 (th, R)：平滑后轮廓的极角与半径（长度一致，星形，含原点）。"""
     if n is None:
         n = int(rng.integers(24, 37))
@@ -384,32 +402,28 @@ def gen_ocean(seed=101):
     return parts
 
 
-# ================ ② 岛屿（16 个，预定义参数表） ================
-# 字段：r 半径(m, 直径=2r, 1× 范围 3-10m；×SCALE=20 后 60-200m)
-#      / beach 沙滩高 / grass 草地厚 / hills 山丘数 / rocks 岩石数 / palms 棕榈数
-#      / hut 小屋 / dock 码头 / ry 朝向(deg) / base 基座色
+# ================ ② 岛屿（16 个，统一规格参数表） ================
+# 字段：r 半径(1×, ×SCALE=20 后 final=55-75m，即直径 110-150m；每岛仅 2-5m 微差)
+#      / beach 沙滩高 / grass 草地厚 / ry 朝向(deg) / base 基座色
+# 无主岛：16 岛规格接近；每岛同一套基础模板 + 轻微变体（特征由 _island_plan 确定性生成）
 # 所有 1× 尺寸在 generate() 统一 ×SCALE=20（顶点数不变）
 ISLAND_TABLE = [
-    # 01-08 山丘岛（8 个，从大到小；03 主岛最大直径 10m）
-    dict(id=1,  r=4.0,  beach=0.30, grass=0.20, hills=2, rocks=0, palms=0, hut=False, dock=False, ry=15,  base="brown"),
-    dict(id=2,  r=3.5,  beach=0.28, grass=0.18, hills=2, rocks=0, palms=0, hut=False, dock=False, ry=45,  base="brown"),
-    dict(id=3,  r=5.0,  beach=0.30, grass=0.22, hills=3, rocks=0, palms=0, hut=False, dock=False, ry=0,   base="brown"),
-    dict(id=4,  r=3.25, beach=0.26, grass=0.17, hills=1, rocks=0, palms=0, hut=False, dock=False, ry=90,  base="brown"),
-    dict(id=5,  r=3.75, beach=0.28, grass=0.18, hills=2, rocks=0, palms=0, hut=False, dock=False, ry=200, base="brown"),
-    dict(id=6,  r=3.0,  beach=0.25, grass=0.16, hills=1, rocks=0, palms=0, hut=False, dock=False, ry=120, base="brown"),
-    dict(id=7,  r=2.75, beach=0.24, grass=0.15, hills=1, rocks=0, palms=0, hut=False, dock=False, ry=60,  base="brown"),
-    dict(id=8,  r=2.5,  beach=0.23, grass=0.15, hills=1, rocks=0, palms=0, hut=False, dock=False, ry=300, base="brown"),
-    # 09-12 岩石岛（4 个，直径 4-4.8m）
-    dict(id=9,  r=2.4,  beach=0.22, grass=0.14, hills=0, rocks=2, palms=0, hut=False, dock=False, ry=10,  base="blue"),
-    dict(id=10, r=2.25, beach=0.21, grass=0.13, hills=0, rocks=3, palms=0, hut=False, dock=False, ry=80,  base="blue"),
-    dict(id=11, r=2.1,  beach=0.20, grass=0.13, hills=0, rocks=2, palms=0, hut=False, dock=False, ry=140, base="blue"),
-    dict(id=12, r=2.0,  beach=0.20, grass=0.12, hills=0, rocks=3, palms=0, hut=False, dock=False, ry=220, base="blue"),
-    # 13-14 棕榈岛（2 个）
-    dict(id=13, r=1.9,  beach=0.19, grass=0.12, hills=0, rocks=0, palms=2, hut=False, dock=False, ry=30,  base="blue"),
-    dict(id=14, r=1.75, beach=0.18, grass=0.12, hills=0, rocks=0, palms=2, hut=False, dock=False, ry=160, base="blue"),
-    # 15-16 小屋/码头岛（2 个）
-    dict(id=15, r=1.6,  beach=0.17, grass=0.11, hills=0, rocks=0, palms=0, hut=True,  dock=False, ry=0,   base="blue"),
-    dict(id=16, r=1.5,  beach=0.16, grass=0.11, hills=0, rocks=0, palms=0, hut=True,  dock=True,  ry=45,  base="blue"),
+    dict(id=1,  r=2.75, beach=0.26, grass=0.17, ry=15,  base="brown"),
+    dict(id=2,  r=2.82, beach=0.25, grass=0.17, ry=45,  base="brown"),
+    dict(id=3,  r=2.89, beach=0.27, grass=0.18, ry=0,   base="brown"),
+    dict(id=4,  r=2.96, beach=0.26, grass=0.16, ry=90,  base="brown"),
+    dict(id=5,  r=3.03, beach=0.25, grass=0.17, ry=200, base="brown"),
+    dict(id=6,  r=3.10, beach=0.27, grass=0.18, ry=120, base="brown"),
+    dict(id=7,  r=3.17, beach=0.26, grass=0.16, ry=60,  base="brown"),
+    dict(id=8,  r=3.24, beach=0.25, grass=0.17, ry=300, base="brown"),
+    dict(id=9,  r=3.31, beach=0.27, grass=0.18, ry=10,  base="brown"),
+    dict(id=10, r=3.38, beach=0.26, grass=0.17, ry=80,  base="brown"),
+    dict(id=11, r=3.45, beach=0.25, grass=0.16, ry=140, base="brown"),
+    dict(id=12, r=3.52, beach=0.27, grass=0.18, ry=220, base="brown"),
+    dict(id=13, r=3.59, beach=0.26, grass=0.17, ry=30,  base="brown"),
+    dict(id=14, r=3.66, beach=0.25, grass=0.16, ry=160, base="brown"),
+    dict(id=15, r=3.73, beach=0.27, grass=0.18, ry=0,   base="brown"),
+    dict(id=16, r=3.75, beach=0.26, grass=0.17, ry=45,  base="brown"),
 ]
 
 
@@ -430,6 +444,111 @@ def _gen_palm(rng, trunk_h=1.2):
     cap = _sphere(_j(PALM_LEAF, 0.05, rng), radius=0.12, subdiv=1, scale=[1.0, 0.9, 1.0])
     cap.apply_translation([0, trunk_h + 0.4, 0])
     parts.append(("palm_cap", cap))
+    return parts
+
+
+def _island_plan(idx, rng):
+    """统一规格：每岛同一套基础模板 + 轻微变体（一人一岛，无主岛、无类型区分）。
+    确定性：同 seed + 同 rng 调用顺序 → 同计划；gen_island 与报表共用，保证一致。
+    计划字段：
+      hills  0/1（50% 有 1 个山丘）
+      trees  2-3（矮树或棕榈，随机）
+      rocks  1-2（沙滩环岩石）
+      grass  4-8（草丛，每丛 3-5 片草叶）
+      shrubs 1-2（灌木圆簇或白/黄小花）
+    """
+    return {
+        "hills": 1 if rng.random() < 0.5 else 0,
+        "trees": int(rng.integers(2, 4)),
+        "rocks": int(rng.integers(1, 3)),
+        "grass": int(rng.integers(4, 9)),
+        "shrubs": int(rng.integers(1, 3)),
+    }
+
+
+def _gen_grass_blade(rng, h=None):
+    """单根草叶：5 边细锥（底部贴 y=0），高 0.3-0.5m（1×→×20 后 6-10m），草绿/深绿随机，轻微倾斜"""
+    if h is None:
+        h = rng.uniform(0.3, 0.5)
+    color = GRASS_BLADE_DARK if rng.random() < 0.5 else GRASS_BLADE_LIGHT
+    blade = _frustum(_j(color, 0.04, rng),
+                     r_bot=rng.uniform(0.02, 0.032),
+                     r_top=0.002,
+                     height=h,
+                     y0=0.0,
+                     sections=5)
+    blade.apply_transform(_rot_z(rng.uniform(-7, 7)))
+    blade.apply_transform(_rot_y(rng.uniform(0, 360)))
+    return blade
+
+
+def _gen_grass_clump(rng, n_blades=None):
+    """一小丛草：3-5 根草叶散布在 ~0.2m 半径内，底部贴地（锚点 y=0）"""
+    if n_blades is None:
+        n_blades = int(rng.integers(3, 6))
+    parts = []
+    for i in range(n_blades):
+        h = rng.uniform(0.3, 0.5)
+        b = _gen_grass_blade(rng, h=h)
+        b.apply_translation([rng.uniform(-0.1, 0.1), 0, rng.uniform(-0.1, 0.1)])
+        parts.append((f"blade{i}", b))
+    return parts
+
+
+def _gen_tree(rng, trunk_h=None):
+    """矮树：竖直树干(_vcyl) + 深绿树冠球簇（中心球 + 3-4 外围球）。
+    整树 ≈ 1.7-2.6m（1×→×20 后 34-52m），树干 1.0-1.6m（1×→×20 后 20-32m）"""
+    if trunk_h is None:
+        trunk_h = rng.uniform(1.0, 1.6)
+    parts = []
+    trunk = _vcyl(_j(TREE_TRUNK, 0.04, rng), radius=rng.uniform(0.1, 0.15), height=trunk_h, sections=8)
+    trunk.apply_translation([0, trunk_h / 2, 0])
+    parts.append(("tree_trunk", trunk))
+    crown_r = rng.uniform(0.4, 0.55)
+    crown_y = trunk_h + crown_r * 0.45
+    crown_c = _j(TREE_CROWN if rng.random() < 0.6 else PALM_GREEN, 0.04, rng)
+    center = _sphere(crown_c, radius=crown_r, subdiv=1, scale=[1.0, 0.8, 1.0])
+    center.apply_translation([0, crown_y, 0])
+    parts.append(("tree_crown_c", center))
+    nb = int(rng.integers(3, 5))
+    for i in range(nb):
+        ang = i * 2 * np.pi / nb + rng.uniform(-0.3, 0.3)
+        rr = rng.uniform(0.26, 0.38)
+        b = _sphere(_j(crown_c, 0.05, rng), radius=rr, subdiv=1,
+                    scale=[1.0, rng.uniform(0.7, 0.95), 1.0])
+        b.apply_translation([np.cos(ang) * crown_r * 0.72,
+                             crown_y + rng.uniform(-0.12, 0.12),
+                             np.sin(ang) * crown_r * 0.72])
+        parts.append((f"tree_crown_{i}", b))
+    return parts
+
+
+def _gen_shrub(rng):
+    """灌木：3-4 个深绿小球组成的圆簇，总直径 ≈0.7-1.2m（1×→×20 后 14-24m），底部贴地"""
+    parts = []
+    n = int(rng.integers(3, 5))
+    for i in range(n):
+        rr = rng.uniform(0.2, 0.32)
+        b = _sphere(_j(SHRUB_GREEN, 0.05, rng), radius=rr, subdiv=1,
+                    scale=[1.0, rng.uniform(0.7, 0.9), 1.0])
+        ang = i * 2 * np.pi / n + rng.uniform(-0.4, 0.4)
+        d = rng.uniform(0.05, 0.22)
+        b.apply_translation([np.cos(ang) * d, rng.uniform(0.04, 0.18), np.sin(ang) * d])
+        parts.append((f"ball{i}", b))
+    return parts
+
+
+def _gen_flower(rng):
+    """小花：细茎 + 白/黄小圆头（小点），总高 ≈0.2m（1×→×20 后 ~4m）"""
+    parts = []
+    head_c = FLOWER_WHITE if rng.random() < 0.5 else FLOWER_YELLOW
+    h = rng.uniform(0.1, 0.2)
+    stem = _vcyl(_j((0x4C, 0x8A, 0x3A, 255), 0.05, rng), radius=0.014, height=h, sections=5)
+    stem.apply_translation([0, h / 2, 0])
+    parts.append(("stem", stem))
+    head = _sphere(_j(head_c, 0.04, rng), radius=rng.uniform(0.05, 0.075), subdiv=1)
+    head.apply_translation([0, h + 0.02, 0])
+    parts.append(("head", head))
     return parts
 
 
@@ -466,58 +585,132 @@ def _gen_dock(rng, length=1.4):
     return parts
 
 
+def _island_smooth_terrain(th, R, base_h, beach_h, grass_h, grass_frac=0.55):
+    """单张连续地形网格（替代三层台阶）：
+    草地(内圈,高 grass_h) → 平滑降坡 → 沙滩(高 beach_h) → 平滑降坡 → 水下基座(0)。
+    - 极坐标 (nθ × nR) 顶点，nθ 取轮廓点数，nR=20
+    - 高度连续：r_norm∈[0,grass_frac]=草地顶；[grass_frac,g2]=草地→沙滩坡（平滑）；[g2,s2]=沙滩顶；
+      [s2,1]=沙滩→水底坡（平滑）；[1,1.15]=水下基座继续下探
+    - 颜色连续：草绿→沙黄→深蓝底，HSL lerp（避免硬边）
+    返回 Trimesh（单 mesh，min_y 归零由调用方做）。"""
+    n_theta = len(R)
+    n_r = 20
+    grass_top = base_h + beach_h + grass_h      # 草地顶面（最高点）
+    sand_top = base_h + beach_h                 # 沙滩顶
+    # 径向分段（归一化半径，0=中心，1=沙滩外缘，1.15=水底边缘）
+    g1 = grass_frac * 0.75                      # 草地平顶区（内）
+    g2 = grass_frac                              # 草地边缘（开始降坡）
+    s2 = 1.0                                     # 沙滩外缘
+    u1 = 1.12                                    # 水下基座外缘
+    rs = np.linspace(0, 1.18, n_r)
+
+    def height_at(rn):
+        if rn <= g1:
+            # 草地平顶 + 轻微中凸（0~0.55 草地略拱）
+            dome = 0.35 * grass_h * (1 - (rn / g1) ** 2) if g1 > 0 else 0
+            return grass_top + dome
+        elif rn <= g2:
+            # 草地 → 沙滩 平滑降坡（smoothstep）
+            t = (rn - g1) / (g2 - g1)
+            ts = t * t * (3 - 2 * t)
+            return grass_top + (sand_top - grass_top) * ts
+        elif rn <= s2:
+            # 沙滩平缓带
+            t = (rn - g2) / (s2 - g2)
+            return sand_top
+        elif rn <= u1:
+            # 沙滩 → 水底 平滑降坡
+            t = (rn - s2) / (u1 - s2)
+            ts = t * t * (3 - 2 * t)
+            return sand_top + (base_h - sand_top) * ts  # 降到基座顶
+        else:
+            t = (rn - u1) / (1.18 - u1)
+            ts = t * t * (3 - 2 * t)
+            return base_h + (0.0 - base_h) * ts  # 基座继续降到 0（水底）
+
+    def color_at(rn):
+        # HSL lerp：草绿 → 沙黄 → 深水蓝
+        if rn <= g1:
+            return np.array(ISLAND_GRASS[:3], float)
+        elif rn <= g2:
+            t = (rn - g1) / (g2 - g1)
+            ts = t * t * (3 - 2 * t)
+            return np.array(ISLAND_GRASS[:3], float) * (1 - ts) + np.array(ISLAND_SAND[:3], float) * ts
+        elif rn <= s2:
+            return np.array(ISLAND_SAND[:3], float)
+        elif rn <= u1:
+            t = (rn - s2) / (u1 - s2)
+            ts = t * t * (3 - 2 * t)
+            return np.array(ISLAND_SAND[:3], float) * (1 - ts) + np.array(ISLAND_BASE_BLUE[:3], float) * ts
+        else:
+            t = (rn - u1) / (1.18 - u1)
+            ts = t * t * (3 - 2 * t)
+            return np.array(ISLAND_BASE_BLUE[:3], float) * (1 - ts) + np.array(OCEAN_DEEP[:3], float) * ts
+
+    # 构造极坐标网格顶点（半径随 θ 用 R 抖动）
+    verts, cols = [], []
+    for ir in range(n_r):
+        rn = rs[ir]
+        h = height_at(rn)
+        col = color_at(rn)
+        for it in range(n_theta):
+            rad = th[it]
+            rad_r = R[it] * rn
+            verts.append([rad_r * np.cos(rad), h, rad_r * np.sin(rad)])
+            cols.append([int(col[0]), int(col[1]), int(col[2]), 255])
+    # 三角化（每格 2 三角形）
+    faces = []
+    for ir in range(n_r - 1):
+        for it in range(n_theta):
+            a = ir * n_theta + it
+            b = ir * n_theta + (it + 1) % n_theta
+            c = (ir + 1) * n_theta + it
+            d = (ir + 1) * n_theta + (it + 1) % n_theta
+            faces.append([a, b, d])
+            faces.append([a, d, c])
+    m = trimesh.Trimesh(vertices=np.array(verts), faces=np.array(faces), process=False)
+    if m.volume < 0:
+        m.invert()
+    gl._ensure_normals(m)
+    m.visual = trimesh.visual.ColorVisuals(m, vertex_colors=np.array(cols, dtype=np.uint8))
+    return m
+
+
 def gen_island(idx, table=None):
-    """自下而上：水下基座(0.3m) → 沙滩环(露出水面) → 草地顶(浅帽) → 可选山丘/岩石/棕榈/小屋码头。
+    """自下而上：水下基座(0.3m) → 沙滩环(露出水面) → 草地顶(浅帽) → 统一植被模板。
+    16 岛统一规格：半径 55-75m（直径 110-150m），无主岛；每岛同一套基础模板 + 轻微变体
+    （山丘 50% / 矮树-棕榈 2-3 / 草丛 4-8 / 岩石 1-2 / 灌木-小花 1-2），全部限制在草地半径内避开沙滩。
     岛轮廓不规则化：基座/沙滩/草地三层共用同一组抖动半径（同 θ 同 r），层间半径差保持
     （基座 +1.5m、沙滩环 -0.8m），俯视像真实岛屿：外圈水底浅滩 → 沙滩 → 草地。"""
     if table is None:
         table = ISLAND_TABLE
     p = table[idx - 1]
     rng = gl.rng_from_seed(2000 + idx * 7)
+    plan = _island_plan(idx, rng)   # 先取统一模板计划（确定性；随后轮廓/特征用同一 rng）
     r, beach_h, grass_h = p["r"], p["beach"], p["grass"]
     base_h = 0.3
-    # 主岛 03 抖动幅度取更高区间（更显眼），其余 0.05-0.18
-    amp_lo, amp_hi = (0.09, 0.18) if idx == 3 else (0.05, 0.16)
-    th, R = _island_footprint(r, rng, amp_lo=amp_lo, amp_hi=amp_hi)
+    # 抖动幅度统一 0.05-0.12（无主岛特殊抬升）
+    th, R = _island_footprint(r, rng, amp_lo=0.05, amp_hi=0.12)
     parts = []
 
-    # ① 水下基座（0 → 0.3m）：外扩 +1.5m，底稍收（斜坡）
-    base_c = ISLAND_BASE_BLUE if p["base"] == "blue" else ISLAND_BASE
-    base = _irregular_layer(_j(base_c, 0.03, rng), th, R + ISLAND_BASE_OFF,
-                            y0=0.0, h=base_h, r_bot=0.9, r_top=1.0)
-    parts.append(("island_base", base))
+    # ① 单张连续地形（草地 → 沙滩 → 水底平滑过渡，替代三层台阶）
+    terrain = _island_smooth_terrain(th, R, base_h, beach_h, grass_h, grass_frac=0.55)
+    parts.append(("island_terrain", terrain))
+    # 草地顶面 y（植被落点基准，取草地最高点）
+    grass_surface = base_h + beach_h + grass_h
+    grass_r_mean = float(np.mean(R) * 0.55)
 
-    # ② 沙滩环（0.3 → 0.3+beach_h，米黄，露出水面）：内收 -0.8m，顶稍收（沙滩缓坡）
-    sand = _irregular_layer(_j(ISLAND_SAND, 0.03, rng), th, R + ISLAND_SAND_OFF,
-                            y0=base_h, h=beach_h, r_bot=1.0, r_top=0.72)
-    parts.append(("island_sand", sand))
-
-    # ③ 草地顶（不规则柱台 + 不规则穹帽，总厚 grass_h）
-    grass_top = base_h + beach_h
-    grass_r = 0.55 * R
-    grass_cyl_h = grass_h * 0.55
-    grass_base = _irregular_layer(_j(ISLAND_GRASS, 0.03, rng), th, grass_r,
-                                  y0=grass_top, h=grass_cyl_h, r_bot=1.0, r_top=1.0)
-    parts.append(("island_grass_base", grass_base))
-    dome_h = grass_h * 0.45
-    dome = _irregular_dome(_j(ISLAND_GRASS, 0.03, rng), th, grass_r,
-                           y0=grass_top + grass_cyl_h, h=dome_h)
-    parts.append(("island_grass_dome", dome))
-    # 草地顶面 y（山丘/棕榈/小屋落点基准）
-    grass_surface = grass_top + grass_h
-
-    # ④ 山丘（草绿圆丘，高 0.5-1.5m）
-    grass_r_mean = r * 0.55
-    for i in range(p["hills"]):
-        h = rng.uniform(0.5, min(1.5, r * 0.32))
+    # ④ 山丘（可选 50%，草绿圆丘，高 0.5-1.4m，相近区间）
+    for i in range(plan["hills"]):
+        h = rng.uniform(0.5, min(1.4, r * 0.32))
         ang = rng.uniform(0, 2 * np.pi)
         dist = rng.uniform(0, grass_r_mean * 0.45)
         hill = _sphere(_j(ISLAND_HILL, 0.04, rng), radius=h * 0.55, subdiv=2, scale=[1.0, 0.95, 1.0])
         hill.apply_translation([dist * np.cos(ang), grass_surface + h * 0.28, dist * np.sin(ang)])
         parts.append((f"hill{i}", hill))
 
-    # ⑤ 岩石（灰，2-3 块）
-    for i in range(p["rocks"]):
+    # ⑤ 岩石（灰，沙滩环 1-2 块）
+    for i in range(plan["rocks"]):
         rr = rng.uniform(0.14, 0.3)
         ang = rng.uniform(0, 2 * np.pi)
         dist = rng.uniform(r * 0.3, r * 0.68)
@@ -526,28 +719,41 @@ def gen_island(idx, table=None):
         rock.apply_translation([dist * np.cos(ang), base_h + beach_h * 0.4, dist * np.sin(ang)])
         parts.append((f"rock{i}", rock))
 
-    # ⑥ 棕榈树
-    for i in range(p["palms"]):
+    # ⑥ 矮树/棕榈（2-3 棵，随机；限制在草地半径内避开沙滩）
+    for i in range(plan["trees"]):
         ang = rng.uniform(0, 2 * np.pi)
-        dist = rng.uniform(0, grass_r_mean * 0.5)
-        trunk_h = rng.uniform(0.9, 1.2)
-        palm = _gen_palm(rng, trunk_h=trunk_h)
-        for nm, m in palm:
+        dist = rng.uniform(0, grass_r_mean * 0.75)
+        if rng.random() < 0.5:
+            tree_parts = _gen_tree(rng)
+        else:
+            tree_parts = _gen_palm(rng, trunk_h=rng.uniform(1.2, 1.8))
+        for nm, m in tree_parts:
             m.apply_translation([dist * np.cos(ang), grass_surface, dist * np.sin(ang)])
-            parts.append((nm, m))
+            parts.append((f"veg_tree{i}_{nm}", m))
 
-    # ⑦ 小屋 / 码头
-    if p["hut"]:
-        hut = _gen_hut(rng, scale=0.8)
-        for nm, m in hut:
-            m.apply_translation([grass_r_mean * 0.25, grass_surface, 0])
-            parts.append((nm, m))
-    if p["dock"]:
-        dock = _gen_dock(rng, length=1.4)
-        for nm, m in dock:
-            m.apply_transform(_rot_y(p["ry"]))
-            m.apply_translation([0, base_h + beach_h * 0.35, r * 0.85])
-            parts.append((nm, m))
+    # ⑦ 草丛（4-8 丛，每丛 3-5 片草叶，底部贴草地顶）
+    for i in range(plan["grass"]):
+        ang = rng.uniform(0, 2 * np.pi)
+        dist = rng.uniform(0, grass_r_mean * 0.9)
+        clump = _gen_grass_clump(rng)
+        for nm, m in clump:
+            m.apply_translation([dist * np.cos(ang), grass_surface, dist * np.sin(ang)])
+            parts.append((f"veg_grass{i}_{nm}", m))
+
+    # ⑧ 灌木/小花（1-2 丛，深绿圆簇或白/黄花小点）
+    for i in range(plan["shrubs"]):
+        ang = rng.uniform(0, 2 * np.pi)
+        dist = rng.uniform(0, grass_r_mean * 0.85)
+        if rng.random() < 0.6:
+            sub = _gen_shrub(rng)
+            for nm, m in sub:
+                m.apply_translation([dist * np.cos(ang), grass_surface, dist * np.sin(ang)])
+                parts.append((f"veg_shrub{i}_{nm}", m))
+        else:
+            sub = _gen_flower(rng)
+            for nm, m in sub:
+                m.apply_translation([dist * np.cos(ang), grass_surface, dist * np.sin(ang)])
+                parts.append((f"veg_flower{i}_{nm}", m))
 
     # 整体朝向（绕 Y）
     if p["ry"]:
@@ -965,12 +1171,54 @@ def update_manifest_size_only(assets_dir, results):
     return updated
 
 
+def island_plan_summary():
+    """16 岛统一规格报表：半径/直径/沙滩/草地 + 特征清单（确定性，与 gen_island 同 seed 同 rng 顺序）"""
+    rows = []
+    for idx in range(1, 17):
+        p = ISLAND_TABLE[idx - 1]
+        rng = gl.rng_from_seed(2000 + idx * 7)
+        plan = _island_plan(idx, rng)
+        rows.append({
+            "id": idx,
+            "r": p["r"] * SCALE,
+            "diam": 2 * p["r"] * SCALE,
+            "beach": round(p["beach"] * SCALE, 1),
+            "grass": round(p["grass"] * SCALE, 1),
+            "hills": plan["hills"],
+            "trees": plan["trees"],
+            "rocks": plan["rocks"],
+            "grass_clumps": plan["grass"],
+            "shrubs": plan["shrubs"],
+        })
+    return rows
+
+
+def island_vegetation_stats(path):
+    """植被验证：返回 (顶点总数, 绿色系顶点数)。绿色系 = G 明显高于 R/B 且 G≥90，
+    覆盖草地/草叶/树冠/灌木；用于证明"每岛加了植被 mesh + 草地层有绿色顶点色"。"""
+    scene = trimesh.load(path)
+    geoms = list(scene.geometry.values()) if hasattr(scene, "geometry") and scene.geometry else [scene]
+    n_vert = 0
+    n_green = 0
+    for g in geoms:
+        vc = getattr(g.visual, "vertex_colors", None)
+        if vc is None or len(vc) == 0:
+            continue
+        vc = np.asarray(vc)
+        n_vert += len(vc)
+        g_ = vc[:, 1].astype(int)
+        r_ = vc[:, 0].astype(int)
+        b_ = vc[:, 2].astype(int)
+        n_green += int(np.sum((g_ > r_ + 15) & (g_ > b_ + 15) & (g_ >= 90)))
+    return n_vert, n_green
+
+
 def main_terrain_only():
-    """2026 第二轮优化专用入口：只重生成 17 个地图 GLB + 只更新 manifest.json 的 sizeKB。
-    不触碰 demo_map.html / preview.html / 任何渲染代码；矿藏不重生成。"""
+    """2026 第三轮优化专用入口：只重生成 17 个地图 GLB（统一规格 + 每岛植被）
+    + 只更新 manifest.json 的 sizeKB。不触碰 demo_map.html / preview.html / 渲染代码；矿藏不重生成。"""
     root = os.path.dirname(os.path.dirname(BASE))
     assets_dir = os.path.join(root, "assets")
-    print("== 生成 17 个地图 GLB（不规则岛 + 提饱和） ==")
+    print("== 生成 17 个地图 GLB（16 岛统一规格 + 每岛植被） ==")
     results = generate_terrain(assets_dir, verify=True)
     fail = [aid for aid, r in results.items() if not r.get("verify")]
     for aid, r in results.items():
@@ -981,11 +1229,31 @@ def main_terrain_only():
     if fail:
         print("  失败:", fail)
 
+    print("\n== 16 岛统一规格表（半径/直径/沙滩/草地，final m） ==")
+    print("  id  半径   直径  沙滩  草地  | 山丘 树/棕榈 岩石 草丛 灌木/花")
+    rows = island_plan_summary()
+    for rw in rows:
+        print(f"  {rw['id']:>2d} {rw['r']:6.1f} {rw['diam']:6.1f} {rw['beach']:5.1f} {rw['grass']:5.1f}"
+              f"  | {rw['hills']:>3d} {rw['trees']:>6d} {rw['rocks']:>4d} {rw['grass_clumps']:>4d} {rw['shrubs']:>7d}")
+
+    print("\n== 每岛 bounds 直径（XZ extent，要求 100-160m）与 min_y（要求 0） ==")
+    for idx in range(1, 17):
+        p = os.path.join(assets_dir, "terrain", f"terrain_island_{idx:02d}.glb")
+        lo, hi = bounds_of(p)
+        dx, dz = hi[0] - lo[0], hi[2] - lo[2]
+        print(f"  岛{idx:02d}: diam={max(dx, dz):6.1f}m  min_y={lo[1]:.2f}  max_y={hi[1]:.1f}")
+
     print("\n== 不规则验证（36 方向半径比 >1.15 即非正圆） ==")
     for idx in (1, 3, 7):
         p = os.path.join(assets_dir, "terrain", f"terrain_island_{idx:02d}.glb")
         mx, mn, ratio = island_irregularity(p)
         print(f"  岛{idx:02d}: max/min 半径 = {mx:.1f}/{mn:.1f} m  比值 = {ratio:.3f}")
+
+    print("\n== 植被验证（随机 3 岛：顶点总数 + 绿色系顶点数） ==")
+    for idx in (4, 9, 14):
+        p = os.path.join(assets_dir, "terrain", f"terrain_island_{idx:02d}.glb")
+        nv, ng = island_vegetation_stats(p)
+        print(f"  岛{idx:02d}: 顶点={nv:6d}  绿色系顶点={ng:6d}（草地+草叶+树冠+灌木）")
 
     print("\n== 更新 manifest.json（仅 sizeKB） ==")
     n = update_manifest_size_only(assets_dir, results)

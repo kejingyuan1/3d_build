@@ -34,7 +34,7 @@
 <div id="stats" id="stats">正在加载...</div>
 
 <script type="importmap">
-{ "imports": { "three": "https://unpkg.com/three@0.170.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/" } }
+{ "imports": { "three": "./vendor/three/build/three.module.js", "three/addons/": "./vendor/three/jsm/" } }
 </script>
 <!-- 内嵌 manifest（避免 fetch 失败） -->
 <script id="manifest-data" type="application/json">{
@@ -1347,7 +1347,7 @@
       "category": "terrain",
       "priority": "P1",
       "name": "海洋水面",
-      "desc": "40×40m 海面 + 波光斑块",
+      "desc": "800×800m 海面 + 波光斑块（顶面≈8.3k 顶点）",
       "source": "procedural"
     },
     {
@@ -1357,7 +1357,7 @@
       "category": "terrain",
       "priority": "P1",
       "name": "岛屿-01",
-      "desc": "岛屿 r=4.0m 沙滩0.3m",
+      "desc": "岛屿 直径110m 沙滩5m",
       "source": "procedural"
     },
     {
@@ -1367,7 +1367,7 @@
       "category": "terrain",
       "priority": "P1",
       "name": "岛屿-02",
-      "desc": "岛屿 r=3.5m 沙滩0.28m",
+      "desc": "岛屿 直径113m 沙滩5m",
       "source": "procedural"
     },
     {
@@ -1377,7 +1377,7 @@
       "category": "terrain",
       "priority": "P1",
       "name": "岛屿-03",
-      "desc": "岛屿 r=5.0m 沙滩0.3m",
+      "desc": "岛屿 直径116m 沙滩5m",
       "source": "procedural"
     },
     {
@@ -1387,7 +1387,7 @@
       "category": "terrain",
       "priority": "P1",
       "name": "岛屿-04",
-      "desc": "岛屿 r=3.25m 沙滩0.26m",
+      "desc": "岛屿 直径118m 沙滩5m",
       "source": "procedural"
     },
     {
@@ -1397,7 +1397,7 @@
       "category": "terrain",
       "priority": "P1",
       "name": "岛屿-05",
-      "desc": "岛屿 r=3.75m 沙滩0.28m",
+      "desc": "岛屿 直径121m 沙滩5m",
       "source": "procedural"
     },
     {
@@ -1407,7 +1407,7 @@
       "category": "terrain",
       "priority": "P1",
       "name": "岛屿-06",
-      "desc": "岛屿 r=3.0m 沙滩0.25m",
+      "desc": "岛屿 直径124m 沙滩5m",
       "source": "procedural"
     },
     {
@@ -1417,7 +1417,7 @@
       "category": "terrain",
       "priority": "P1",
       "name": "岛屿-07",
-      "desc": "岛屿 r=2.75m 沙滩0.24m",
+      "desc": "岛屿 直径127m 沙滩5m",
       "source": "procedural"
     },
     {
@@ -1427,7 +1427,7 @@
       "category": "terrain",
       "priority": "P1",
       "name": "岛屿-08",
-      "desc": "岛屿 r=2.5m 沙滩0.23m",
+      "desc": "岛屿 直径130m 沙滩5m",
       "source": "procedural"
     },
     {
@@ -1437,7 +1437,7 @@
       "category": "terrain",
       "priority": "P1",
       "name": "岛屿-09",
-      "desc": "岛屿 r=2.4m 沙滩0.22m",
+      "desc": "岛屿 直径132m 沙滩5m",
       "source": "procedural"
     },
     {
@@ -1447,7 +1447,7 @@
       "category": "terrain",
       "priority": "P1",
       "name": "岛屿-10",
-      "desc": "岛屿 r=2.25m 沙滩0.21m",
+      "desc": "岛屿 直径135m 沙滩5m",
       "source": "procedural"
     },
     {
@@ -1457,7 +1457,7 @@
       "category": "terrain",
       "priority": "P1",
       "name": "岛屿-11",
-      "desc": "岛屿 r=2.1m 沙滩0.2m",
+      "desc": "岛屿 直径138m 沙滩5m",
       "source": "procedural"
     },
     {
@@ -1467,7 +1467,7 @@
       "category": "terrain",
       "priority": "P1",
       "name": "岛屿-12",
-      "desc": "岛屿 r=2.0m 沙滩0.2m",
+      "desc": "岛屿 直径141m 沙滩5m",
       "source": "procedural"
     },
     {
@@ -1477,7 +1477,7 @@
       "category": "terrain",
       "priority": "P1",
       "name": "岛屿-13",
-      "desc": "岛屿 r=1.9m 沙滩0.19m",
+      "desc": "岛屿 直径144m 沙滩5m",
       "source": "procedural"
     },
     {
@@ -1487,7 +1487,7 @@
       "category": "terrain",
       "priority": "P1",
       "name": "岛屿-14",
-      "desc": "岛屿 r=1.75m 沙滩0.18m",
+      "desc": "岛屿 直径146m 沙滩5m",
       "source": "procedural"
     },
     {
@@ -1497,7 +1497,7 @@
       "category": "terrain",
       "priority": "P1",
       "name": "岛屿-15",
-      "desc": "岛屿 r=1.6m 沙滩0.17m",
+      "desc": "岛屿 直径149m 沙滩5m",
       "source": "procedural"
     },
     {
@@ -1507,7 +1507,7 @@
       "category": "terrain",
       "priority": "P1",
       "name": "岛屿-16",
-      "desc": "岛屿 r=1.5m 沙滩0.16m",
+      "desc": "岛屿 直径150m 沙滩5m",
       "source": "procedural"
     },
     {
@@ -1517,7 +1517,7 @@
       "category": "prop",
       "priority": "P1",
       "name": "铜矿-小型",
-      "desc": "铜矿 小型矿藏",
+      "desc": "铜矿 小型矿藏 8m",
       "source": "procedural"
     },
     {
@@ -1527,7 +1527,7 @@
       "category": "prop",
       "priority": "P1",
       "name": "铜矿-中型",
-      "desc": "铜矿 中型矿藏",
+      "desc": "铜矿 中型矿藏 20m",
       "source": "procedural"
     },
     {
@@ -1537,7 +1537,7 @@
       "category": "prop",
       "priority": "P1",
       "name": "铜矿-大型",
-      "desc": "铜矿 大型矿藏",
+      "desc": "铜矿 大型矿藏 40m",
       "source": "procedural"
     },
     {
@@ -1547,7 +1547,7 @@
       "category": "prop",
       "priority": "P1",
       "name": "银矿-小型",
-      "desc": "银矿 小型矿藏",
+      "desc": "银矿 小型矿藏 8m",
       "source": "procedural"
     },
     {
@@ -1557,7 +1557,7 @@
       "category": "prop",
       "priority": "P1",
       "name": "银矿-中型",
-      "desc": "银矿 中型矿藏",
+      "desc": "银矿 中型矿藏 20m",
       "source": "procedural"
     },
     {
@@ -1567,7 +1567,7 @@
       "category": "prop",
       "priority": "P1",
       "name": "银矿-大型",
-      "desc": "银矿 大型矿藏",
+      "desc": "银矿 大型矿藏 40m",
       "source": "procedural"
     },
     {
@@ -1577,7 +1577,7 @@
       "category": "prop",
       "priority": "P1",
       "name": "金矿-小型",
-      "desc": "金矿 小型矿藏",
+      "desc": "金矿 小型矿藏 8m",
       "source": "procedural"
     },
     {
@@ -1587,7 +1587,7 @@
       "category": "prop",
       "priority": "P1",
       "name": "金矿-中型",
-      "desc": "金矿 中型矿藏",
+      "desc": "金矿 中型矿藏 20m",
       "source": "procedural"
     },
     {
@@ -1597,7 +1597,7 @@
       "category": "prop",
       "priority": "P1",
       "name": "金矿-大型",
-      "desc": "金矿 大型矿藏",
+      "desc": "金矿 大型矿藏 40m",
       "source": "procedural"
     },
     {

@@ -18,17 +18,21 @@
 <body>
 <div id="viewer"></div>
 <div id="legend">
-  <div class="t">海洋地图（轻量版）</div>
-  <div><span class="sw" style="background:#2E86C1"></span>海面 800×800m</div>
-  <div><span class="sw" style="background:#E8D8A0"></span>5 岛屿（主岛 200m + 4 卫星岛）</div>
-  <div><span class="sw" style="background:#FFD700"></span>金/银/铜矿×6（小/中/大）</div>
-  <div style="margin-top:6px;color:#6b7f96">🖱 左键旋转 · 滚轮缩放</div>
+  <div class="t">海洋地图</div>
+  <div><span class="sw" style="background:#2E86C1"></span>海面 800×800m（动态波浪）</div>
+  <div><span class="sw" style="background:#E8D8A0"></span>16 岛（均匀分布，玩家一人一岛）</div>
+  <div><span class="sw" style="background:#C8753A"></span>铜矿 × 小/中/大</div>
+  <div><span class="sw" style="background:#D8DCE0"></span>银矿 × 小/中/大</div>
+  <div><span class="sw" style="background:#FFD700"></span>金矿 × 小/中/大</div>
+  <div style="margin-top:6px;color:#6b7f96">🖱 左键旋转 · 滚轮缩放 · 沙滩白色浪花动</div>
 </div>
 <div id="status">加载中...</div>
 
 <script type="importmap">
-{ "imports": { "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
-  "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/" } }
+{ "imports": {
+    "three": "./vendor/three/build/three.module.js",
+    "three/addons/": "./vendor/three/jsm/"
+} }
 </script>
 <script type="module">
 import * as THREE from 'three';
@@ -97,25 +101,32 @@ async function loadGLB(path) {
   return gltf.scene;
 }
 
-// 轻量布局：1 海面 + 5 岛（主岛 03 + 4 卫星岛 01/05/09/13）
+// 16 岛均匀分布（玩家一人一岛，规格一致，环形 2 圈等间距）
+// 外圈 r=350：8 岛（每 45°），内圈 r=200：8 岛（每 45°，错开 22.5°）
 const ISLAND_LAYOUT = [
-  { id: '03', r: 0,   a: 0    },  // 主岛中心 200m
-  { id: '01', r: 400, a: 0    },  // 卫星岛 360m
-  { id: '05', r: 400, a: 90   },
-  { id: '09', r: 250, a: 45   },
-  { id: '13', r: 250, a: 225  },
+  // 外圈 8 岛
+  { id: '01', r: 350, a: 0    }, { id: '02', r: 350, a: 45  },
+  { id: '03', r: 350, a: 90   }, { id: '04', r: 350, a: 135 },
+  { id: '05', r: 350, a: 180  }, { id: '06', r: 350, a: 225 },
+  { id: '07', r: 350, a: 270  }, { id: '08', r: 350, a: 315 },
+  // 内圈 8 岛（错开 22.5° 避免重叠）
+  { id: '09', r: 200, a: 22.5 }, { id: '10', r: 200, a: 67.5 },
+  { id: '11', r: 200, a: 112.5}, { id: '12', r: 200, a: 157.5},
+  { id: '13', r: 200, a: 202.5}, { id: '14', r: 200, a: 247.5},
+  { id: '15', r: 200, a: 292.5}, { id: '16', r: 200, a: 337.5},
 ];
 
+// 矿藏：均匀散点分布（每岛附近放 1 个矿，铜/银/金轮换）
 const ORE_LAYOUT = [
-  // 铜（外圈）
-  { ore: 'copper_medium', pos: [380, 0, 0] },
-  { ore: 'copper_large',  pos: [-380, 0, 0] },
-  // 银（中圈）
-  { ore: 'silver_medium', pos: [0, 0, 280] },
-  // 金（主岛周围）
-  { ore: 'gold_small',   pos: [120, 0, 80] },
-  { ore: 'gold_medium',  pos: [-100, 0, -80] },
-  { ore: 'gold_large',   pos: [0, 0, 0] },
+  { ore: 'copper_small',   pos: [350, 0, 0] },    // 01 附近
+  { ore: 'silver_medium',  pos: [0, 0, 350] },    // 03 附近
+  { ore: 'gold_large',     pos: [-350, 0, 0] },   // 05 附近
+  { ore: 'copper_medium',  pos: [0, 0, -350] },   // 07 附近
+  { ore: 'silver_small',   pos: [200, 0, 80] },   // 09 附近
+  { ore: 'gold_medium',    pos: [80, 0, -185] },  // 12 附近
+  { ore: 'copper_large',   pos: [-185, 0, -80] }, // 14 附近
+  { ore: 'silver_large',   pos: [-80, 0, 185] },  // 15 附近
+  { ore: 'gold_small',     pos: [120, 0, 120] },  // 中心区域
 ];
 
 async function init() {
@@ -123,7 +134,7 @@ async function init() {
     // 动态海面：自定义 ShaderMaterial（顶点波浪 + 波光高光 + 浪花渐变）
     const oceanMesh = createDynamicOcean(400);  // 半径 400m 覆盖 800m 海面
     scene.add(oceanMesh);
-    statusEl.textContent = '加载 5 岛...';
+    statusEl.textContent = '加载 16 岛...';
 
     for (const it of ISLAND_LAYOUT) {
       const rad = it.a * Math.PI / 180;
@@ -132,9 +143,9 @@ async function init() {
       m.rotation.y = rad + Math.PI/2;
       scene.add(m);
       // 每个岛沙滩边缘生成白色浪花环（动态起伏）
-      scene.add(createFoamRing(it.r * Math.cos(rad), it.r * Math.sin(rad), 14 + it.id.length));  // 半径按岛大小近似
+      scene.add(createFoamRing(it.r * Math.cos(rad), it.r * Math.sin(rad), 60));  // 岛直径约 120m，浪花环半径 60m
     }
-    statusEl.textContent = '加载 6 矿...';
+    statusEl.textContent = '加载 9 矿...';
 
     for (const it of ORE_LAYOUT) {
       const m = await loadGLB(`assets/props/ore_${it.ore}.glb`);
@@ -142,7 +153,7 @@ async function init() {
       scene.add(m);
     }
 
-    statusEl.textContent = '✅ 就绪：动态海面 + 5 岛（不规则待生成）+ 6 矿 + 沙滩浪花';
+    statusEl.textContent = '✅ 就绪：动态海面 + 16 岛（均匀分布）+ 9 矿 + 沙滩浪花';
     await new Promise(r => setTimeout(r, 1500));
   } catch (e) {
     statusEl.textContent = '❌ ' + e.message;
