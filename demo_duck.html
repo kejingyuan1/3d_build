@@ -86,8 +86,13 @@ function applyToon(root) {
   root.traverse(o => {
     if (o.isMesh) {
       o.castShadow = o.receiveShadow = true;
-      // 方案 B：HY3 贴图直接映射（UV），Lambert 材质
-      o.material = new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: false });
+      // v5 plane billboard：HY3 鸭子图透明背景 → plane 渲染时透明
+      o.material = new THREE.MeshLambertMaterial({
+        color: 0xffffff, vertexColors: false,
+        side: THREE.DoubleSide,
+        transparent: true,
+        alphaTest: 0.1,
+      });
     }
   });
 }
@@ -123,8 +128,8 @@ async function init() {
     applyToon(duck);
     // 方案 B：HY3 半写实贴图映射（身体 + 脚分开贴）
     applyHY3Textures(duck,
-      'generated-images/半写实风格鸭子身体侧面特写_白色羽毛细腻逼真_羽毛层次丰富__2026-08-06T06-23-52.png',
-      'generated-images/半写实风格鸭子脚丫特写_黄色鸭子脚_三根脚趾带蹼_皮肤纹理逼_2026-08-06T06-24-15.png'
+      'generated-images/duck_semi_alpha.png',
+      'generated-images/duck_foot_alpha.png'
     );
     // 落在地面（锚点应为脚底 y=0）
     scene.add(duck);
