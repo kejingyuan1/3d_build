@@ -86,19 +86,33 @@ function applyToon(root) {
   root.traverse(o => {
     if (o.isMesh) {
       o.castShadow = o.receiveShadow = true;
-      const orig = o.material;
-      const attr = o.geometry && o.geometry.attributes.color;
-      const hasMap = orig && (orig.map || (orig.pbrMetallicRoughness && orig.pbrMetallicRoughness.baseColorTexture));
-      // 用 MeshLambertMaterial（无 toon gradient 压缩，白色顶点色直接显示）
-      o.material = new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true });
-      if (hasMap) {
-        const t = orig.map || orig.pbrMetallicRoughness.baseColorTexture;
-        o.material.map = t;
-      }
-      // vertex color 模式：material.color 保持白 (1,1,1)，顶点色作为最终色原样显示
-      // （GLB 顶点色已是最终颜色，不需要再乘以 material.color）
+      // 方案 B：HY3 贴图直接映射（UV），Lambert 材质
+      o.material = new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: false });
     }
   });
+}
+
+// 方案 B：加载 HY3 半写实贴图并映射到对应 mesh（按节点名区分）
+function applyHY3Textures(duckRoot, bodyTexUrl, footTexUrl, onDone) {
+  const texLoader = new THREE.TextureLoader();
+  let bodyTex = null, footTex = null;
+  const apply = () => {
+    if (!bodyTex || !footTex) return;
+    duckRoot.traverse(o => {
+      if (!o.isMesh) return;
+      // body/neck_group → 身体贴图；foot_l/foot_r → 脚贴图
+      if (o.name === 'body' || o.name === 'neck_group') {
+        o.material.map = bodyTex;
+        o.material.needsUpdate = true;
+      } else if (o.name === 'foot_l' || o.name === 'foot_r') {
+        o.material.map = footTex;
+        o.material.needsUpdate = true;
+      }
+    });
+    if (onDone) onDone();
+  };
+  texLoader.load(bodyTexUrl, t => { bodyTex = t; bodyTex.colorSpace = THREE.SRGBColorSpace; apply(); }, undefined, () => apply());
+  texLoader.load(footTexUrl, t => { footTex = t; footTex.colorSpace = THREE.SRGBColorSpace; apply(); }, undefined, () => apply());
 }
 
 async function init() {
@@ -107,6 +121,11 @@ async function init() {
     duck = gltf.scene;
     duck.scale.setScalar(3);  // 模型 0.4m → 1.2m 展示，贴图细节可见
     applyToon(duck);
+    // 方案 B：HY3 半写实贴图映射（身体 + 脚分开贴）
+    applyHY3Textures(duck,
+      'generated-images/半写实风格鸭子身体侧面特写_白色羽毛细腻逼真_羽毛层次丰富__2026-08-06T06-23-52.png',
+      'generated-images/半写实风格鸭子脚丫特写_黄色鸭子脚_三根脚趾带蹼_皮肤纹理逼_2026-08-06T06-24-15.png'
+    );
     // 落在地面（锚点应为脚底 y=0）
     scene.add(duck);
     window.__duck = duck;  // 调试句柄
