@@ -86,13 +86,8 @@ function applyToon(root) {
   root.traverse(o => {
     if (o.isMesh) {
       o.castShadow = o.receiveShadow = true;
-      // v5 plane billboard：HY3 鸭子图透明背景 → plane 渲染时透明
-      o.material = new THREE.MeshLambertMaterial({
-        color: 0xffffff, vertexColors: false,
-        side: THREE.DoubleSide,
-        transparent: true,
-        alphaTest: 0.1,
-      });
+      // 3D 几何方案：HY3 贴图作为 baseColorTexture，让 3D 几何（capsule 身+头+嘴+腿）有半写实质感
+      o.material = new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true });
     }
   });
 }
@@ -129,8 +124,16 @@ async function init() {
     // 方案 B：HY3 半写实贴图映射（身体 + 脚分开贴）
     applyHY3Textures(duck,
       'generated-images/duck_semi_alpha.png',
-      'generated-images/duck_foot_alpha.png'
+      'generated-images/duck_foot_alpha.png',
+      true   // 3D 几何版本：保留 body 白色（用 3D 几何色），贴图只影响颜色细节
     );
+    // 走 3D 模式：贴图作为 baseColorTexture，覆盖 vertex color，让 HY3 皮克斯风纹理覆盖 3D 几何
+    duck.traverse(o => {
+      if (o.isMesh) {
+        o.material.vertexColors = false;  // 3D 几何模式下用贴图覆盖
+        o.material.color.setHex(0xffffff);
+      }
+    });
     // 落在地面（锚点应为脚底 y=0）
     scene.add(duck);
     window.__duck = duck;  // 调试句柄
