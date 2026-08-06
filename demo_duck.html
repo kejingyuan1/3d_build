@@ -49,20 +49,23 @@ const viewer = document.getElementById('viewer');
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB);
 const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.1, 100);
-camera.position.set(2.5, 2.2, 3.5);
+camera.position.set(1.5, 1.2, 2.5);  // 鸭子 scale 3x，合适距离看清贴图
 const renderer = new THREE.WebGLRenderer({ antialias:true });
 renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 viewer.appendChild(renderer.domElement);
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(0, 0.5, 0);
+controls.target.set(0, 0.4, 0);
 controls.enableDamping = true;
 
-scene.add(new THREE.HemisphereLight(0xDFEBFF, 0xFFF0D0, 1.5));
-const sun = new THREE.DirectionalLight(0xFFF8E8, 2.4);
+scene.add(new THREE.HemisphereLight(0xDFEBFF, 0xFFF0D0, 2.2));
+const sun = new THREE.DirectionalLight(0xFFF8E8, 3.0);
 sun.position.set(5, 8, 4); sun.castShadow = true;
 scene.add(sun);
+const fill = new THREE.DirectionalLight(0xCFE8FF, 1.4);  // 补光：避免暗面过黑
+fill.position.set(-4, 3, -2);
+scene.add(fill);
 
 const ground = new THREE.Mesh(new THREE.CircleGeometry(4, 32), new THREE.MeshToonMaterial({ color: 0x8BC34A }));
 ground.rotation.x = -Math.PI/2; ground.receiveShadow = true;
@@ -73,8 +76,9 @@ const statusEl = document.getElementById('status');
 let duck = null, mixer = null, mode = 'idle', time = 0;
 
 function makeGradient() {
-  const g = new Uint8Array([0xC0,0xC0,0xC0,0xFF, 0xE0,0xE0,0xE0,0xFF, 0xFF,0xFF,0xFF,0xFF]);
-  const t = new THREE.DataTexture(g, 3, 1, THREE.RGBAFormat);
+  // 亮色 4 阶 toon：最暗 0.9 起（白色顶点色不会被压暗成灰）
+  const g = new Uint8Array([0xE6,0xE6,0xE6,0xFF, 0xF0,0xF0,0xF0,0xFF, 0xFA,0xFA,0xFA,0xFF, 0xFF,0xFF,0xFF,0xFF]);
+  const t = new THREE.DataTexture(g, 4, 1, THREE.RGBAFormat);
   t.minFilter = t.magFilter = THREE.NearestFilter; return t;
 }
 
@@ -84,11 +88,15 @@ function applyToon(root) {
       o.castShadow = o.receiveShadow = true;
       const orig = o.material;
       const attr = o.geometry && o.geometry.attributes.color;
-      let hex = 0xcccccc;
-      if (attr && attr.array) hex = (attr.array[0]<<16)|(attr.array[1]<<8)|attr.array[2];
       const hasMap = orig && (orig.map || (orig.pbrMetallicRoughness && orig.pbrMetallicRoughness.baseColorTexture));
-      o.material = new THREE.MeshToonMaterial({ color:0xffffff, map: hasMap ? (orig.map||orig.pbrMetallicRoughness.baseColorTexture) : null, gradientMap: makeGradient(), vertexColors: true });
-      if (!hasMap) o.material.color.setHex(hex);
+      // 用 MeshLambertMaterial（无 toon gradient 压缩，白色顶点色直接显示）
+      o.material = new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true });
+      if (hasMap) {
+        const t = orig.map || orig.pbrMetallicRoughness.baseColorTexture;
+        o.material.map = t;
+      }
+      // vertex color 模式：material.color 保持白 (1,1,1)，顶点色作为最终色原样显示
+      // （GLB 顶点色已是最终颜色，不需要再乘以 material.color）
     }
   });
 }
@@ -97,9 +105,15 @@ async function init() {
   try {
     const gltf = await loader.loadAsync('assets/animals/animal_duck_white.glb');
     duck = gltf.scene;
+    duck.scale.setScalar(3);  // 模型 0.4m → 1.2m 展示，贴图细节可见
     applyToon(duck);
     // 落在地面（锚点应为脚底 y=0）
     scene.add(duck);
+    window.__duck = duck;  // 调试句柄
+    window.__scene = scene;
+    window.__camera = camera;
+    window.__controls = controls;
+    window.__THREE = THREE;
     // 展示节点结构
     const parts = {};
     duck.traverse(o => { if (o.name) parts[o.name] = o; });
