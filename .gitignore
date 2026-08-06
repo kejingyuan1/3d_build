@@ -27,6 +27,7 @@ _srv.log
 # tools/ 下调试脚本（命名以 _ 开头或 _dbg / _check / _diag / _probe 等）
 tools/_*.mjs
 tools/_*.py
+tools/_*.png
 
 # 验证截图（过程产物）
 verify_*.png

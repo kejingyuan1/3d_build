@@ -1,9 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-海洋地图 + 矿藏资源生成器
+海洋地图 + 矿藏资源生成器（SCALE=20 放大版）
 农场牧场网页游戏 · 海洋地图（1 海面 + 16 岛屿）+ 矿藏资源（3 种矿 × 3 档 = 9）
 输出：assets/terrain/（terrain_ocean.glb + terrain_island_01..16.glb）+ assets/props/（ore_*.glb）
 依赖 gen_lib 强制规范：PALETTE/C/jitter/mesh/export_scene/_ensure_normals + gen_seasons._vcyl 竖直圆柱模式
+
+放大说明（2026 用户反馈：岛上要盖房+养殖+菜地，3-10m 太小）：
+- 全局 SCALE=20：所有几何在 1× 生成后统一坐标缩放 ×20（顶点数不变，GLB 体积基本不变）。
+  海面 40→800×800m、岛直径 3-10→60-200m（主岛 03 变 200m）、矿藏占地 0.4/1/2→8/20/40m。
+- 海面例外：800m 大水面若沿用原 40 格细分太稀，波光斑块会糊；顶面细分 n=40→90（≈8.3k 顶点），
+  底面 n=20→45，总顶点 ~10.4k（6000-12000 区间）。波光斑块坐标在 1× 空间定义、随 SCALE 等比放大。
+- 锚点不变：岛基座底 min_y=0（海面 y=0），海面顶面 y=0；矿藏同规则。
 """
 import os
 import sys
@@ -44,6 +51,9 @@ ORE_COLORS = {
 }
 ORE_NAMES = {"copper": "铜矿", "silver": "银矿", "gold": "金矿"}
 TIER_NAMES = {"small": "小型", "medium": "中型", "large": "大型"}
+
+# 全局放大系数：1× 几何在 generate() 统一坐标缩放（顶点数不变）
+SCALE = 20
 
 
 # ================ 基础几何 helpers（沿用 gen_seasons 风格） ================
@@ -119,6 +129,15 @@ def _normalize_parts(parts):
     return parts
 
 
+def _scale_parts(parts, s=SCALE):
+    """全局坐标缩放 ×s：顶点数不变，仅坐标放大；统一缩放保持 min_y=0 锚点"""
+    if abs(s - 1.0) < 1e-9:
+        return parts
+    for _, m in parts:
+        m.apply_scale(s)
+    return parts
+
+
 # ================ ① 海洋水面（1 个资产） ================
 
 def _ocean_grid(n=40, size=40.0, y=0.0, color_fn=None):
@@ -177,13 +196,14 @@ def _ocean_color_fn(x, z):
 
 
 def gen_ocean(seed=101):
-    """40×40m 海面：顶面 y=0（锚点），底面 y=-0.1，含波光顶点色"""
+    """40×40m 海面（1×，generate() 统一 ×20 → 800×800m）：顶面 y=0（锚点），底面 y=-0.1，含波光顶点色
+    细分：顶面 n=90（(91)²≈8.3k 顶点）→ 放大后 800m 上波光斑块不糊；底面 n=45"""
     rng = gl.rng_from_seed(seed)
     parts = []
-    top = _ocean_grid(n=40, size=40.0, y=0.0, color_fn=_ocean_color_fn)
+    top = _ocean_grid(n=90, size=40.0, y=0.0, color_fn=_ocean_color_fn)
     parts.append(("ocean_top", top))
     # 底面（更深蓝，法线朝 -Y）
-    bottom = _ocean_grid(n=20, size=40.0, y=-0.1,
+    bottom = _ocean_grid(n=45, size=40.0, y=-0.1,
                          color_fn=lambda x, z: np.array(OCEAN_DEEP, dtype=np.uint8))
     if bottom.face_normals.mean(axis=0)[1] > 0:
         bottom.invert()
@@ -201,8 +221,10 @@ def gen_ocean(seed=101):
 
 
 # ================ ② 岛屿（16 个，预定义参数表） ================
-# 字段：r 半径(m, 直径=2r, 范围 3-10m) / beach 沙滩高(露出水面, m) / grass 草地厚(m)
-#      / hills 山丘数 / rocks 岩石数 / palms 棕榈数 / hut 小屋 / dock 码头 / ry 朝向(deg) / base 基座色
+# 字段：r 半径(m, 直径=2r, 1× 范围 3-10m；×SCALE=20 后 60-200m)
+#      / beach 沙滩高 / grass 草地厚 / hills 山丘数 / rocks 岩石数 / palms 棕榈数
+#      / hut 小屋 / dock 码头 / ry 朝向(deg) / base 基座色
+# 所有 1× 尺寸在 generate() 统一 ×SCALE=20（顶点数不变）
 ISLAND_TABLE = [
     # 01-08 山丘岛（8 个，从大到小；03 主岛最大直径 10m）
     dict(id=1,  r=4.0,  beach=0.30, grass=0.20, hills=2, rocks=0, palms=0, hut=False, dock=False, ry=15,  base="brown"),
@@ -542,28 +564,31 @@ def gen_ore_large(kind, seed=321):
 # ================ 生成 / 验证 / manifest ================
 
 def all_assets():
-    """返回 [(asset_id, 相对路径, 生成函数, category, designId, name, desc, collision)]"""
+    """返回 [(asset_id, 相对路径, 生成函数, category, designId, name, desc, collision)]
+    描述/碰撞均按 ×SCALE=20 后的实际世界尺寸标注"""
     items = []
     items.append(("terrain_ocean", "terrain/terrain_ocean.glb", gen_ocean, "terrain", "MAP-01",
-                  "海洋水面", "40×40m 海面 + 波光斑块", {"type": "fixed", "shape": "box", "params": {"hx": 20, "hy": 0.05, "hz": 20}}))
+                  "海洋水面", "800×800m 海面 + 波光斑块（顶面≈8.3k 顶点）",
+                  {"type": "fixed", "shape": "box", "params": {"hx": 20 * SCALE, "hy": 1.0, "hz": 20 * SCALE}}))
     for idx in range(1, 17):
         p = ISLAND_TABLE[idx - 1]
         items.append((f"terrain_island_{idx:02d}", f"terrain/terrain_island_{idx:02d}.glb",
                       lambda i=idx: gen_island(i), "terrain", f"MAP-{idx + 1:02d}",
-                      f"岛屿-{idx:02d}", f"岛屿 r={p['r']}m 沙滩{p['beach']}m",
-                      {"type": "fixed", "shape": "box", "params": {"hx": p["r"], "hy": 1.25, "hz": p["r"]}}))
+                      f"岛屿-{idx:02d}", f"岛屿 直径{2 * p['r'] * SCALE:.0f}m 沙滩{p['beach'] * SCALE:.0f}m",
+                      {"type": "fixed", "shape": "box",
+                       "params": {"hx": p["r"] * SCALE, "hy": 25.0, "hz": p["r"] * SCALE}}))
     ore_ids = []
     for kind in ("copper", "silver", "gold"):
         for tier in ("small", "medium", "large"):
             ore_ids.append((kind, tier))
     for i, (kind, tier) in enumerate(ore_ids, start=1):
         fn = {"small": gen_ore_small, "medium": gen_ore_medium, "large": gen_ore_large}[tier]
-        size = {"small": 0.4, "medium": 1.0, "large": 2.0}[tier]
-        hgt = {"small": 0.25, "medium": 0.9, "large": 2.2}[tier]
+        size = {"small": 0.4, "medium": 1.0, "large": 2.0}[tier] * SCALE
+        hgt = {"small": 0.25, "medium": 0.9, "large": 2.2}[tier] * SCALE
         items.append((f"ore_{kind}_{tier}", f"props/ore_{kind}_{tier}.glb",
                       lambda k=kind, t=tier: {"small": gen_ore_small, "medium": gen_ore_medium, "large": gen_ore_large}[t](k),
                       "prop", f"ORE-{i:02d}",
-                      f"{ORE_NAMES[kind]}-{TIER_NAMES[tier]}", f"{ORE_NAMES[kind]} {TIER_NAMES[tier]}矿藏",
+                      f"{ORE_NAMES[kind]}-{TIER_NAMES[tier]}", f"{ORE_NAMES[kind]} {TIER_NAMES[tier]}矿藏 {size:.0f}m",
                       {"type": "fixed", "shape": "box", "params": {"hx": size / 2, "hy": hgt / 2, "hz": size / 2}}))
     return items
 
@@ -599,7 +624,7 @@ def bounds_of(path):
 
 
 def generate(assets_dir=None, verify=True):
-    """生成 26 个 GLB（1 海面 + 16 岛 + 9 矿）并验证"""
+    """生成 26 个 GLB（1 海面 + 16 岛 + 9 矿）并验证；所有几何统一 ×SCALE=20（坐标缩放，顶点数不变）"""
     if assets_dir is None:
         assets_dir = os.path.join(os.path.dirname(os.path.dirname(BASE)), "assets")
     os.makedirs(os.path.join(assets_dir, "terrain"), exist_ok=True)
@@ -607,6 +632,7 @@ def generate(assets_dir=None, verify=True):
     results = {}
     for aid, rel, fn, cat, did, name, desc, col in all_assets():
         parts = fn()
+        _scale_parts(parts, SCALE)  # ← 全局 ×20（海面细分已在 gen_ocean 内加密度）
         path = os.path.join(assets_dir, rel)
         gl.export_scene(parts, path)
         size_kb = os.path.getsize(path) / 1024

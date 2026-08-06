@@ -3966,15 +3966,15 @@
       "category": "terrain",
       "priority": "P1",
       "name": "海洋水面",
-      "desc": "40×40m 海面 + 波光斑块",
+      "desc": "800×800m 海面 + 波光斑块（顶面≈8.3k 顶点）",
       "source": "procedural",
       "collision": {
         "type": "fixed",
         "shape": "box",
         "params": {
-          "hx": 20,
-          "hy": 0.05,
-          "hz": 20
+          "hx": 400,
+          "hy": 1.0,
+          "hz": 400
         }
       },
       "animations": [],
@@ -3984,7 +3984,7 @@
           "path": "terrain/terrain_ocean.glb"
         }
       ],
-      "sizeKB": 109.6,
+      "sizeKB": 526.2,
       "loadPriority": 0
     },
     {
@@ -3994,15 +3994,15 @@
       "category": "terrain",
       "priority": "P1",
       "name": "岛屿-01",
-      "desc": "岛屿 r=4.0m 沙滩0.3m",
+      "desc": "岛屿 直径160m 沙滩6m",
       "source": "procedural",
       "collision": {
         "type": "fixed",
         "shape": "box",
         "params": {
-          "hx": 4.0,
-          "hy": 1.25,
-          "hz": 4.0
+          "hx": 80.0,
+          "hy": 25.0,
+          "hz": 80.0
         }
       },
       "animations": [],
@@ -4012,7 +4012,7 @@
           "path": "terrain/terrain_island_01.glb"
         }
       ],
-      "sizeKB": 27.7,
+      "sizeKB": 27.6,
       "loadPriority": 0
     },
     {
@@ -4022,15 +4022,15 @@
       "category": "terrain",
       "priority": "P1",
       "name": "岛屿-02",
-      "desc": "岛屿 r=3.5m 沙滩0.28m",
+      "desc": "岛屿 直径140m 沙滩6m",
       "source": "procedural",
       "collision": {
         "type": "fixed",
         "shape": "box",
         "params": {
-          "hx": 3.5,
-          "hy": 1.25,
-          "hz": 3.5
+          "hx": 70.0,
+          "hy": 25.0,
+          "hz": 70.0
         }
       },
       "animations": [],
@@ -4040,7 +4040,7 @@
           "path": "terrain/terrain_island_02.glb"
         }
       ],
-      "sizeKB": 27.7,
+      "sizeKB": 27.6,
       "loadPriority": 0
     },
     {
@@ -4050,15 +4050,15 @@
       "category": "terrain",
       "priority": "P1",
       "name": "岛屿-03",
-      "desc": "岛屿 r=5.0m 沙滩0.3m",
+      "desc": "岛屿 直径200m 沙滩6m",
       "source": "procedural",
       "collision": {
         "type": "fixed",
         "shape": "box",
         "params": {
-          "hx": 5.0,
-          "hy": 1.25,
-          "hz": 5.0
+          "hx": 100.0,
+          "hy": 25.0,
+          "hz": 100.0
         }
       },
       "animations": [],
@@ -4078,15 +4078,15 @@
       "category": "terrain",
       "priority": "P1",
       "name": "岛屿-04",
-      "desc": "岛屿 r=3.25m 沙滩0.26m",
+      "desc": "岛屿 直径130m 沙滩5m",
       "source": "procedural",
       "collision": {
         "type": "fixed",
         "shape": "box",
         "params": {
-          "hx": 3.25,
-          "hy": 1.25,
-          "hz": 3.25
+          "hx": 65.0,
+          "hy": 25.0,
+          "hz": 65.0
         }
       },
       "animations": [],
@@ -4096,7 +4096,7 @@
           "path": "terrain/terrain_island_04.glb"
         }
       ],
-      "sizeKB": 22.2,
+      "sizeKB": 22.1,
       "loadPriority": 0
     },
     {
@@ -4106,15 +4106,15 @@
       "category": "terrain",
       "priority": "P1",
       "name": "岛屿-05",
-      "desc": "岛屿 r=3.75m 沙滩0.28m",
+      "desc": "岛屿 直径150m 沙滩6m",
       "source": "procedural",
       "collision": {
         "type": "fixed",
         "shape": "box",
         "params": {
-          "hx": 3.75,
-          "hy": 1.25,
-          "hz": 3.75
+          "hx": 75.0,
+          "hy": 25.0,
+          "hz": 75.0
         }
       },
       "animations": [],
@@ -4134,15 +4134,15 @@
       "category": "terrain",
       "priority": "P1",
       "name": "岛屿-06",
-      "desc": "岛屿 r=3.0m 沙滩0.25m",
+      "desc": "岛屿 直径120m 沙滩5m",
       "source": "procedural",
       "collision": {
         "type": "fixed",
         "shape": "box",
         "params": {
-          "hx": 3.0,
-          "hy": 1.25,
-          "hz": 3.0
+          "hx": 60.0,
+          "hy": 25.0,
+          "hz": 60.0
         }
       },
       "animations": [],
@@ -4162,15 +4162,15 @@
       "category": "terrain",
       "priority": "P1",
       "name": "岛屿-07",
-      "desc": "岛屿 r=2.75m 沙滩0.24m",
+      "desc": "岛屿 直径110m 沙滩5m",
       "source": "procedural",
       "collision": {
         "type": "fixed",
         "shape": "box",
         "params": {
-          "hx": 2.75,
-          "hy": 1.25,
-          "hz": 2.75
+          "hx": 55.0,
+          "hy": 25.0,
+          "hz": 55.0
         }
       },
       "animations": [],
@@ -4190,15 +4190,15 @@
       "category": "terrain",
       "priority": "P1",
       "name": "岛屿-08",
-      "desc": "岛屿 r=2.5m 沙滩0.23m",
+      "desc": "岛屿 直径100m 沙滩5m",
       "source": "procedural",
       "collision": {
         "type": "fixed",
         "shape": "box",
         "params": {
-          "hx": 2.5,
-          "hy": 1.25,
-          "hz": 2.5
+          "hx": 50.0,
+          "hy": 25.0,
+          "hz": 50.0
         }
       },
       "animations": [],
@@ -4208,7 +4208,7 @@
           "path": "terrain/terrain_island_08.glb"
         }
       ],
-      "sizeKB": 22.4,
+      "sizeKB": 22.3,
       "loadPriority": 0
     },
     {
@@ -4218,15 +4218,15 @@
       "category": "terrain",
       "priority": "P1",
       "name": "岛屿-09",
-      "desc": "岛屿 r=2.4m 沙滩0.22m",
+      "desc": "岛屿 直径96m 沙滩4m",
       "source": "procedural",
       "collision": {
         "type": "fixed",
         "shape": "box",
         "params": {
-          "hx": 2.4,
-          "hy": 1.25,
-          "hz": 2.4
+          "hx": 48.0,
+          "hy": 25.0,
+          "hz": 48.0
         }
       },
       "animations": [],
@@ -4246,15 +4246,15 @@
       "category": "terrain",
       "priority": "P1",
       "name": "岛屿-10",
-      "desc": "岛屿 r=2.25m 沙滩0.21m",
+      "desc": "岛屿 直径90m 沙滩4m",
       "source": "procedural",
       "collision": {
         "type": "fixed",
         "shape": "box",
         "params": {
-          "hx": 2.25,
-          "hy": 1.25,
-          "hz": 2.25
+          "hx": 45.0,
+          "hy": 25.0,
+          "hz": 45.0
         }
       },
       "animations": [],
@@ -4274,15 +4274,15 @@
       "category": "terrain",
       "priority": "P1",
       "name": "岛屿-11",
-      "desc": "岛屿 r=2.1m 沙滩0.2m",
+      "desc": "岛屿 直径84m 沙滩4m",
       "source": "procedural",
       "collision": {
         "type": "fixed",
         "shape": "box",
         "params": {
-          "hx": 2.1,
-          "hy": 1.25,
-          "hz": 2.1
+          "hx": 42.0,
+          "hy": 25.0,
+          "hz": 42.0
         }
       },
       "animations": [],
@@ -4302,15 +4302,15 @@
       "category": "terrain",
       "priority": "P1",
       "name": "岛屿-12",
-      "desc": "岛屿 r=2.0m 沙滩0.2m",
+      "desc": "岛屿 直径80m 沙滩4m",
       "source": "procedural",
       "collision": {
         "type": "fixed",
         "shape": "box",
         "params": {
-          "hx": 2.0,
-          "hy": 1.25,
-          "hz": 2.0
+          "hx": 40.0,
+          "hy": 25.0,
+          "hz": 40.0
         }
       },
       "animations": [],
@@ -4330,15 +4330,15 @@
       "category": "terrain",
       "priority": "P1",
       "name": "岛屿-13",
-      "desc": "岛屿 r=1.9m 沙滩0.19m",
+      "desc": "岛屿 直径76m 沙滩4m",
       "source": "procedural",
       "collision": {
         "type": "fixed",
         "shape": "box",
         "params": {
-          "hx": 1.9,
-          "hy": 1.25,
-          "hz": 1.9
+          "hx": 38.0,
+          "hy": 25.0,
+          "hz": 38.0
         }
       },
       "animations": [],
@@ -4348,7 +4348,7 @@
           "path": "terrain/terrain_island_13.glb"
         }
       ],
-      "sizeKB": 44.0,
+      "sizeKB": 43.9,
       "loadPriority": 0
     },
     {
@@ -4358,15 +4358,15 @@
       "category": "terrain",
       "priority": "P1",
       "name": "岛屿-14",
-      "desc": "岛屿 r=1.75m 沙滩0.18m",
+      "desc": "岛屿 直径70m 沙滩4m",
       "source": "procedural",
       "collision": {
         "type": "fixed",
         "shape": "box",
         "params": {
-          "hx": 1.75,
-          "hy": 1.25,
-          "hz": 1.75
+          "hx": 35.0,
+          "hy": 25.0,
+          "hz": 35.0
         }
       },
       "animations": [],
@@ -4376,7 +4376,7 @@
           "path": "terrain/terrain_island_14.glb"
         }
       ],
-      "sizeKB": 44.4,
+      "sizeKB": 44.3,
       "loadPriority": 0
     },
     {
@@ -4386,15 +4386,15 @@
       "category": "terrain",
       "priority": "P1",
       "name": "岛屿-15",
-      "desc": "岛屿 r=1.6m 沙滩0.17m",
+      "desc": "岛屿 直径64m 沙滩3m",
       "source": "procedural",
       "collision": {
         "type": "fixed",
         "shape": "box",
         "params": {
-          "hx": 1.6,
-          "hy": 1.25,
-          "hz": 1.6
+          "hx": 32.0,
+          "hy": 25.0,
+          "hz": 32.0
         }
       },
       "animations": [],
@@ -4404,7 +4404,7 @@
           "path": "terrain/terrain_island_15.glb"
         }
       ],
-      "sizeKB": 20.5,
+      "sizeKB": 20.4,
       "loadPriority": 0
     },
     {
@@ -4414,15 +4414,15 @@
       "category": "terrain",
       "priority": "P1",
       "name": "岛屿-16",
-      "desc": "岛屿 r=1.5m 沙滩0.16m",
+      "desc": "岛屿 直径60m 沙滩3m",
       "source": "procedural",
       "collision": {
         "type": "fixed",
         "shape": "box",
         "params": {
-          "hx": 1.5,
-          "hy": 1.25,
-          "hz": 1.5
+          "hx": 30.0,
+          "hy": 25.0,
+          "hz": 30.0
         }
       },
       "animations": [],
@@ -4432,7 +4432,7 @@
           "path": "terrain/terrain_island_16.glb"
         }
       ],
-      "sizeKB": 28.6,
+      "sizeKB": 28.5,
       "loadPriority": 0
     },
     {
@@ -4442,15 +4442,15 @@
       "category": "prop",
       "priority": "P1",
       "name": "铜矿-小型",
-      "desc": "铜矿 小型矿藏",
+      "desc": "铜矿 小型矿藏 8m",
       "source": "procedural",
       "collision": {
         "type": "fixed",
         "shape": "box",
         "params": {
-          "hx": 0.2,
-          "hy": 0.125,
-          "hz": 0.2
+          "hx": 4.0,
+          "hy": 2.5,
+          "hz": 4.0
         }
       },
       "animations": [],
@@ -4460,7 +4460,7 @@
           "path": "props/ore_copper_small.glb"
         }
       ],
-      "sizeKB": 19.5,
+      "sizeKB": 19.4,
       "loadPriority": 0
     },
     {
@@ -4470,15 +4470,15 @@
       "category": "prop",
       "priority": "P1",
       "name": "铜矿-中型",
-      "desc": "铜矿 中型矿藏",
+      "desc": "铜矿 中型矿藏 20m",
       "source": "procedural",
       "collision": {
         "type": "fixed",
         "shape": "box",
         "params": {
-          "hx": 0.5,
-          "hy": 0.45,
-          "hz": 0.5
+          "hx": 10.0,
+          "hy": 9.0,
+          "hz": 10.0
         }
       },
       "animations": [],
@@ -4488,7 +4488,7 @@
           "path": "props/ore_copper_medium.glb"
         }
       ],
-      "sizeKB": 29.5,
+      "sizeKB": 29.4,
       "loadPriority": 0
     },
     {
@@ -4498,15 +4498,15 @@
       "category": "prop",
       "priority": "P1",
       "name": "铜矿-大型",
-      "desc": "铜矿 大型矿藏",
+      "desc": "铜矿 大型矿藏 40m",
       "source": "procedural",
       "collision": {
         "type": "fixed",
         "shape": "box",
         "params": {
-          "hx": 1.0,
-          "hy": 1.1,
-          "hz": 1.0
+          "hx": 20.0,
+          "hy": 22.0,
+          "hz": 20.0
         }
       },
       "animations": [],
@@ -4516,7 +4516,7 @@
           "path": "props/ore_copper_large.glb"
         }
       ],
-      "sizeKB": 57.2,
+      "sizeKB": 56.9,
       "loadPriority": 0
     },
     {
@@ -4526,15 +4526,15 @@
       "category": "prop",
       "priority": "P1",
       "name": "银矿-小型",
-      "desc": "银矿 小型矿藏",
+      "desc": "银矿 小型矿藏 8m",
       "source": "procedural",
       "collision": {
         "type": "fixed",
         "shape": "box",
         "params": {
-          "hx": 0.2,
-          "hy": 0.125,
-          "hz": 0.2
+          "hx": 4.0,
+          "hy": 2.5,
+          "hz": 4.0
         }
       },
       "animations": [],
@@ -4544,7 +4544,7 @@
           "path": "props/ore_silver_small.glb"
         }
       ],
-      "sizeKB": 19.5,
+      "sizeKB": 19.4,
       "loadPriority": 0
     },
     {
@@ -4554,15 +4554,15 @@
       "category": "prop",
       "priority": "P1",
       "name": "银矿-中型",
-      "desc": "银矿 中型矿藏",
+      "desc": "银矿 中型矿藏 20m",
       "source": "procedural",
       "collision": {
         "type": "fixed",
         "shape": "box",
         "params": {
-          "hx": 0.5,
-          "hy": 0.45,
-          "hz": 0.5
+          "hx": 10.0,
+          "hy": 9.0,
+          "hz": 10.0
         }
       },
       "animations": [],
@@ -4572,7 +4572,7 @@
           "path": "props/ore_silver_medium.glb"
         }
       ],
-      "sizeKB": 29.5,
+      "sizeKB": 29.4,
       "loadPriority": 0
     },
     {
@@ -4582,15 +4582,15 @@
       "category": "prop",
       "priority": "P1",
       "name": "银矿-大型",
-      "desc": "银矿 大型矿藏",
+      "desc": "银矿 大型矿藏 40m",
       "source": "procedural",
       "collision": {
         "type": "fixed",
         "shape": "box",
         "params": {
-          "hx": 1.0,
-          "hy": 1.1,
-          "hz": 1.0
+          "hx": 20.0,
+          "hy": 22.0,
+          "hz": 20.0
         }
       },
       "animations": [],
@@ -4600,7 +4600,7 @@
           "path": "props/ore_silver_large.glb"
         }
       ],
-      "sizeKB": 57.2,
+      "sizeKB": 56.9,
       "loadPriority": 0
     },
     {
@@ -4610,15 +4610,15 @@
       "category": "prop",
       "priority": "P1",
       "name": "金矿-小型",
-      "desc": "金矿 小型矿藏",
+      "desc": "金矿 小型矿藏 8m",
       "source": "procedural",
       "collision": {
         "type": "fixed",
         "shape": "box",
         "params": {
-          "hx": 0.2,
-          "hy": 0.125,
-          "hz": 0.2
+          "hx": 4.0,
+          "hy": 2.5,
+          "hz": 4.0
         }
       },
       "animations": [],
@@ -4628,7 +4628,7 @@
           "path": "props/ore_gold_small.glb"
         }
       ],
-      "sizeKB": 19.5,
+      "sizeKB": 19.4,
       "loadPriority": 0
     },
     {
@@ -4638,15 +4638,15 @@
       "category": "prop",
       "priority": "P1",
       "name": "金矿-中型",
-      "desc": "金矿 中型矿藏",
+      "desc": "金矿 中型矿藏 20m",
       "source": "procedural",
       "collision": {
         "type": "fixed",
         "shape": "box",
         "params": {
-          "hx": 0.5,
-          "hy": 0.45,
-          "hz": 0.5
+          "hx": 10.0,
+          "hy": 9.0,
+          "hz": 10.0
         }
       },
       "animations": [],
@@ -4656,7 +4656,7 @@
           "path": "props/ore_gold_medium.glb"
         }
       ],
-      "sizeKB": 29.5,
+      "sizeKB": 29.4,
       "loadPriority": 0
     },
     {
@@ -4666,15 +4666,15 @@
       "category": "prop",
       "priority": "P1",
       "name": "金矿-大型",
-      "desc": "金矿 大型矿藏",
+      "desc": "金矿 大型矿藏 40m",
       "source": "procedural",
       "collision": {
         "type": "fixed",
         "shape": "box",
         "params": {
-          "hx": 1.0,
-          "hy": 1.1,
-          "hz": 1.0
+          "hx": 20.0,
+          "hy": 22.0,
+          "hz": 20.0
         }
       },
       "animations": [],
@@ -4684,8 +4684,80 @@
           "path": "props/ore_gold_large.glb"
         }
       ],
-      "sizeKB": 56.8,
+      "sizeKB": 56.5,
       "loadPriority": 0
+    },
+    {
+      "assetId": "animal_duck_white",
+      "designId": "ANI-DK-01",
+      "path": "assets/animals/animal_duck_white.glb",
+      "category": "animal",
+      "priority": "P1",
+      "name": "程序化 白鸭（分离式）",
+      "sizeKB": 37.3,
+      "source": "procedural",
+      "license": "CC0",
+      "attribution": "程序化生成（gen_duck.py）",
+      "color": [
+        245,
+        245,
+        240
+      ],
+      "collision": {
+        "type": "dynamic",
+        "shape": "sphere",
+        "params": {
+          "radius": 0.35
+        }
+      },
+      "animatable": {
+        "parts": [
+          "foot_l",
+          "foot_r",
+          "neck_group"
+        ],
+        "suggested": {
+          "walk": "foot_l/foot_r.rotation.x ±25°",
+          "eat": "neck_group.rotation.x 低头 45°"
+        }
+      },
+      "loadPriority": "lazy"
+    },
+    {
+      "assetId": "animal_duck_brown",
+      "designId": "ANI-DK-02",
+      "path": "assets/animals/animal_duck_brown.glb",
+      "category": "animal",
+      "priority": "P1",
+      "name": "程序化 棕鸭（分离式）",
+      "sizeKB": 37.3,
+      "source": "procedural",
+      "license": "CC0",
+      "attribution": "程序化生成（gen_duck.py）",
+      "color": [
+        150,
+        110,
+        70
+      ],
+      "collision": {
+        "type": "dynamic",
+        "shape": "sphere",
+        "params": {
+          "radius": 0.35
+        }
+      },
+      "animatable": {
+        "parts": [
+          "foot_l",
+          "foot_r",
+          "neck_group"
+        ],
+        "suggested": {
+          "walk": "foot_l/foot_r.rotation.x ±25°",
+          "eat": "neck_group.rotation.x 低头 45°"
+        }
+      },
+      "loadPriority": "lazy"
     }
   ]
 }

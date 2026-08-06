@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>分离式鸭子动画演示</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:"Microsoft YaHei",sans-serif; background:#1a2332; color:#eee; overflow:hidden; }
+  #viewer { position:absolute; inset:0; }
+  #panel { position:absolute; top:12px; left:50%; transform:translateX(-50%); background:rgba(20,28,40,.85);
+    border:1px solid rgba(255,255,255,.15); border-radius:12px; padding:10px 18px; display:flex; gap:12px;
+    align-items:center; z-index:10; box-shadow:0 4px 20px rgba(0,0,0,.4); }
+  .btn { background:#2b3a52; color:#dfe9f5; border:1px solid #3d5068; padding:7px 16px; border-radius:8px;
+    font-size:13px; cursor:pointer; transition:all .15s; }
+  .btn:hover { background:#3a4d6a; }
+  .btn.active { background:#4a9de0; border-color:#6cb8f0; color:#fff; }
+  #status { position:absolute; bottom:14px; left:50%; transform:translateX(-50%); background:rgba(20,28,40,.8);
+    border:1px solid rgba(255,255,255,.12); border-radius:10px; padding:8px 16px; font-size:13px; color:#b8c8dc; z-index:10; text-align:center; }
+  #loading { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:#1a2332; z-index:100; font-size:17px; color:#9fb3c8; }
+</style>
+</head>
+<body>
+<div id="loading">加载鸭子模型...</div>
+<div id="viewer"></div>
+<div id="panel">
+  <button class="btn" id="btnWalk">🦆 走路</button>
+  <button class="btn" id="btnEat">🐛 低头吃食</button>
+  <button class="btn" id="btnIdle" class="active">🧍 待机</button>
+</div>
+<div id="status">加载中...</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const viewer = document.getElementById('viewer');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87CEEB);
+const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.1, 100);
+camera.position.set(2.5, 2.2, 3.5);
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+viewer.appendChild(renderer.domElement);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0.5, 0);
+controls.enableDamping = true;
+
+scene.add(new THREE.HemisphereLight(0xDFEBFF, 0xFFF0D0, 1.5));
+const sun = new THREE.DirectionalLight(0xFFF8E8, 2.4);
+sun.position.set(5, 8, 4); sun.castShadow = true;
+scene.add(sun);
+
+const ground = new THREE.Mesh(new THREE.CircleGeometry(4, 32), new THREE.MeshToonMaterial({ color: 0x8BC34A }));
+ground.rotation.x = -Math.PI/2; ground.receiveShadow = true;
+scene.add(ground);
+
+const loader = new GLTFLoader();
+const statusEl = document.getElementById('status');
+let duck = null, mixer = null, mode = 'idle', time = 0;
+
+function makeGradient() {
+  const g = new Uint8Array([0xC0,0xC0,0xC0,0xFF, 0xE0,0xE0,0xE0,0xFF, 0xFF,0xFF,0xFF,0xFF]);
+  const t = new THREE.DataTexture(g, 3, 1, THREE.RGBAFormat);
+  t.minFilter = t.magFilter = THREE.NearestFilter; return t;
+}
+
+function applyToon(root) {
+  root.traverse(o => {
+    if (o.isMesh) {
+      o.castShadow = o.receiveShadow = true;
+      const orig = o.material;
+      const attr = o.geometry && o.geometry.attributes.color;
+      let hex = 0xcccccc;
+      if (attr && attr.array) hex = (attr.array[0]<<16)|(attr.array[1]<<8)|attr.array[2];
+      const hasMap = orig && (orig.map || (orig.pbrMetallicRoughness && orig.pbrMetallicRoughness.baseColorTexture));
+      o.material = new THREE.MeshToonMaterial({ color:0xffffff, map: hasMap ? (orig.map||orig.pbrMetallicRoughness.baseColorTexture) : null, gradientMap: makeGradient() });
+      if (!hasMap) o.material.color.setHex(hex);
+    }
+  });
+}
+
+async function init() {
+  try {
+    const gltf = await loader.loadAsync('assets/animals/animal_duck_white.glb');
+    duck = gltf.scene;
+    applyToon(duck);
+    // 落在地面（锚点应为脚底 y=0）
+    scene.add(duck);
+    // 展示节点结构
+    const parts = {};
+    duck.traverse(o => { if (o.name) parts[o.name] = o; });
+    console.log('鸭子节点:', Object.keys(parts).join(', '));
+    statusEl.textContent = '✅ 鸭子就绪 — 点击「走路」「低头吃食」按钮看分离式动作';
+    document.getElementById('loading').style.display = 'none';
+  } catch (e) {
+    statusEl.textContent = '❌ 加载失败: ' + e.message;
+    console.error(e);
+  }
+}
+
+function setMode(m) {
+  mode = m; time = 0;
+  document.querySelectorAll('#panel .btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(m === 'walk' ? 'btnWalk' : m === 'eat' ? 'btnEat' : 'btnIdle').classList.add('active');
+}
+
+// 动画驱动：分离式节点
+function animateDuck(dt) {
+  if (!duck) return;
+  const footL = duck.getObjectByName('foot_l');
+  const footR = duck.getObjectByName('foot_r');
+  const neck = duck.getObjectByName('neck_group');
+  if (!footL || !footR || !neck) return;
+
+  if (mode === 'walk') {
+    // 走路：双脚交替前后摆 ±25°，身体微微上下
+    footL.rotation.x = Math.sin(time * 6) * 0.45;  // ~25°
+    footR.rotation.x = -Math.sin(time * 6) * 0.45;
+    neck.rotation.x = 0;
+    duck.position.y = Math.abs(Math.sin(time * 6)) * 0.03;
+  } else if (mode === 'eat') {
+    // 低头吃食：脖子下弯 45°，双脚并拢站立
+    footL.rotation.x = 0; footR.rotation.x = 0;
+    neck.rotation.x = 0.85;  // ~48° 低头
+  } else {
+    // 待机
+    footL.rotation.x = 0; footR.rotation.x = 0;
+    neck.rotation.x = 0;
+  }
+}
+
+let last = performance.now();
+function animate() {
+  requestAnimationFrame(animate);
+  const now = performance.now();
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  time += dt;
+  animateDuck(dt);
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+document.getElementById('btnWalk').onclick = () => setMode('walk');
+document.getElementById('btnEat').onclick = () => setMode('eat');
+document.getElementById('btnIdle').onclick = () => setMode('idle');
+window.addEventListener('resize', () => { camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+animate();
+init();
+</script>
+</body>
+</html>
