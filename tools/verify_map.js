@@ -6,13 +6,14 @@ const puppeteer = require('puppeteer-core');
     headless: 'new', args: ['--no-sandbox','--disable-gpu']
   });
   const page = await browser.newPage();
+  await page.setCacheEnabled(false);
   const pageErrors = [];
   const failed = [];
   page.on('pageerror', e => pageErrors.push(e.message));
   page.on('requestfailed', r => failed.push(r.url().split('/').pop()));
   page.on('console', m => { if (m.type() === 'error' && !m.text().includes('404')) console.log('ERR:', m.text().slice(0,100)); });
-  await page.goto('http://localhost:8898/demo_map.html', { waitUntil: 'domcontentloaded', timeout: 30000 });
-  await new Promise(r => setTimeout(r, 15000)); // 等 26 个资产加载
+  await page.goto('http://localhost:8898/demo_map.html?nocache=' + Date.now(), { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await new Promise(r => setTimeout(r, 25000)); // ×20 资源多，等久点
 
   const status = await page.evaluate(() => document.getElementById('status').textContent);
   console.log('状态栏:', status);

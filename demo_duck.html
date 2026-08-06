@@ -21,14 +21,20 @@
 </style>
 </head>
 <body>
-<div id="loading">加载鸭子模型...</div>
-<div id="viewer"></div>
-<div id="panel">
-  <button class="btn" id="btnWalk">🦆 走路</button>
-  <button class="btn" id="btnEat">🐛 低头吃食</button>
-  <button class="btn" id="btnIdle" class="active">🧍 待机</button>
-</div>
-<div id="status">加载中...</div>
+  <div id="loading">加载鸭子模型...</div>
+  <div id="viewer"></div>
+  <div id="panel">
+    <button class="btn" id="btnWalk">🦆 走路</button>
+    <button class="btn" id="btnEat">🐛 低头吃食</button>
+    <button class="btn" id="btnIdle" class="active">🧍 待机</button>
+  </div>
+  <div id="status">加载中...</div>
+  <script>
+    // 提示用户：必须用 http:// 打开（file:// 协议会被 CORS 阻挡）
+    if (location.protocol === 'file:') {
+      document.body.innerHTML = '<div style="color:#fff;padding:40px;font-family:sans-serif;background:#1a2332;min-height:100vh;"><h2>⚠️ 鸭子 demo 加载失败</h2><p style="margin:20px 0;color:#9fb3c8;line-height:1.8;">浏览器禁止 file:// 协议加载本地 GLB（CORS 限制）。<br>请通过 HTTP 服务访问：<br><br><code style="background:#2b3a52;padding:8px 16px;border-radius:6px;color:#4a9de0;font-size:16px;">http://localhost:8898/demo_duck.html</code><br><br>服务器已在 8898 端口运行（node preview_server.js）。</p></div>';
+    }
+  </script>
 
 <script type="importmap">
 { "imports": { "three": "https://unpkg.com/three@0.170.0/build/three.module.js",

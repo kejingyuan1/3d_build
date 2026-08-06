@@ -2,48 +2,33 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>海洋地图 - 岛屿与矿藏</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>海洋地图（轻量版）</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: "Microsoft YaHei", sans-serif; background: #0d1b2a; color: #eee; overflow: hidden; }
-  #viewer { position: absolute; inset: 0; }
-  #status {
-    position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
-    background: rgba(8,20,35,0.85); border: 1px solid rgba(255,255,255,0.15);
-    border-radius: 10px; padding: 8px 18px; font-size: 13px; color: #b8c8dc; z-index: 10; text-align: center;
-  }
-  #legend {
-    position: absolute; right: 12px; top: 12px; background: rgba(8,20,35,0.85);
-    border: 1px solid rgba(255,255,255,0.15); border-radius: 10px; padding: 12px 16px;
-    font-size: 12px; color: #9fb3c8; z-index: 10; line-height: 2;
-  }
-  #legend .t { color: #fff; font-weight: bold; margin-bottom: 4px; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:"Microsoft YaHei",sans-serif; background:#0d1b2a; color:#eee; overflow:hidden; }
+  #viewer { position:absolute; inset:0; }
+  #status { position:absolute; bottom:14px; left:50%; transform:translateX(-50%); background:rgba(8,20,35,.85);
+    border:1px solid rgba(255,255,255,.15); border-radius:10px; padding:8px 18px; font-size:13px; color:#b8c8dc; z-index:10; text-align:center; }
+  #legend { position:absolute; right:12px; top:12px; background:rgba(8,20,35,.85); border:1px solid rgba(255,255,255,.15);
+    border-radius:10px; padding:12px 16px; font-size:12px; color:#9fb3c8; z-index:10; line-height:2; }
+  #legend .t { color:#fff; font-weight:bold; margin-bottom:4px; }
   #legend .sw { display:inline-block; width:14px; height:14px; border-radius:3px; margin-right:6px; vertical-align:middle; }
-  #loading { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:#0d1b2a; z-index:100; font-size:17px; color:#9fb3c8; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .spinner { width:34px; height:34px; border:4px solid #1b3a5c; border-top-color:#4a9de0; border-radius:50%; animation:spin 1s linear infinite; margin-right:12px; }
 </style>
 </head>
 <body>
-<div id="loading"><div class="spinner"></div><span>加载海洋地图资产...</span></div>
 <div id="viewer"></div>
 <div id="legend">
-  <div class="t">海洋地图</div>
-  <div><span class="sw" style="background:#2E86C1"></span>海面（40×40m）</div>
-  <div><span class="sw" style="background:#E8D8A0"></span>岛屿（16 座，环形分布）</div>
-  <div><span class="sw" style="background:#C8753A"></span>铜矿（小/中/大）</div>
-  <div><span class="sw" style="background:#D8DCE0"></span>银矿（小/中/大）</div>
-  <div><span class="sw" style="background:#FFD700"></span>金矿（小/中/大）</div>
-  <div style="margin-top:6px;color:#6b7f96">🖱 左键旋转 · 滚轮缩放 · 右键平移</div>
+  <div class="t">海洋地图（轻量版）</div>
+  <div><span class="sw" style="background:#2E86C1"></span>海面 800×800m</div>
+  <div><span class="sw" style="background:#E8D8A0"></span>5 岛屿（主岛 200m + 4 卫星岛）</div>
+  <div><span class="sw" style="background:#FFD700"></span>金/银/铜矿×6（小/中/大）</div>
+  <div style="margin-top:6px;color:#6b7f96">🖱 左键旋转 · 滚轮缩放</div>
 </div>
 <div id="status">加载中...</div>
 
 <script type="importmap">
-{ "imports": {
-    "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
-    "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
-} }
+{ "imports": { "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/" } }
 </script>
 <script type="module">
 import * as THREE from 'three';
@@ -53,48 +38,54 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 const viewer = document.getElementById('viewer');
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB);
-scene.fog = new THREE.Fog(0x87CEEB, 60, 100);
+// 不设 fog（地图 800m × 20 设了雾整个场景会模糊）
+// scene.fog = new THREE.Fog(0x87CEEB, 250, 1100);
 
-const camera = new THREE.PerspectiveCamera(55, window.innerWidth/window.innerHeight, 0.1, 200);
-camera.position.set(0, 30, 40);
+const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 2000);
+camera.position.set(0, 250, 450);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 viewer.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(0, 0.5, 0);
+controls.target.set(0, 0, 0);
 controls.enableDamping = true;
 controls.maxPolarAngle = Math.PI/2 - 0.02;
 
-scene.add(new THREE.HemisphereLight(0xDFEBFF, 0xFFF0D0, 1.4));
-const sun = new THREE.DirectionalLight(0xFFF8E8, 2.4);
-sun.position.set(10, 20, 8);
-sun.castShadow = true;
+scene.add(new THREE.HemisphereLight(0xDFEBFF, 0xFFF0D0, 1.8));
+const sun = new THREE.DirectionalLight(0xFFF8E8, 2.8);
+sun.position.set(10, 20, 8); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -500; sun.shadow.camera.right = 500;
+sun.shadow.camera.top = 500; sun.shadow.camera.bottom = -500;
 scene.add(sun);
+const fill = new THREE.DirectionalLight(0xCFE8FF, 0.8);
+fill.position.set(-6, 8, -4);
+scene.add(fill);
 
 const loader = new GLTFLoader();
 const statusEl = document.getElementById('status');
 
 function makeGradient() {
-  const g = new Uint8Array([0xC0,0xC0,0xC0,0xFF, 0xE0,0xE0,0xE0,0xFF, 0xFF,0xFF,0xFF,0xFF]);
-  const tex = new THREE.DataTexture(g, 3, 1, THREE.RGBAFormat);
-  tex.minFilter = tex.magFilter = THREE.NearestFilter;
-  return tex;
+  // 4 阶：更亮、对比更强（细节清晰）
+  const g = new Uint8Array([0xD0,0xD0,0xD0,0xFF, 0xE8,0xE8,0xE8,0xFF, 0xF8,0xF8,0xF8,0xFF, 0xFF,0xFF,0xFF,0xFF]);
+  const t = new THREE.DataTexture(g, 4, 1, THREE.RGBAFormat);
+  t.minFilter = t.magFilter = THREE.NearestFilter; return t;
 }
 
 function applyToon(root) {
   root.traverse(o => {
     if (o.isMesh) {
-      o.castShadow = true; o.receiveShadow = true;
+      o.castShadow = o.receiveShadow = true;
       const orig = o.material;
       const attr = o.geometry && o.geometry.attributes.color;
       let hex = 0xcccccc;
-      if (attr && attr.array) hex = (attr.array[0]<<16) | (attr.array[1]<<8) | attr.array[2];
+      if (attr && attr.array) hex = (attr.array[0]<<16)|(attr.array[1]<<8)|attr.array[2];
       const hasMap = orig && (orig.map || (orig.pbrMetallicRoughness && orig.pbrMetallicRoughness.baseColorTexture));
-      o.material = new THREE.MeshToonMaterial({ color: 0xffffff, map: hasMap ? (orig.map||orig.pbrMetallicRoughness.baseColorTexture) : null, gradientMap: makeGradient() });
+      o.material = new THREE.MeshToonMaterial({ color:0xffffff, map: hasMap ? (orig.map||orig.pbrMetallicRoughness.baseColorTexture) : null, gradientMap: makeGradient() });
       if (!hasMap) o.material.color.setHex(hex);
     }
   });
@@ -106,79 +97,53 @@ async function loadGLB(path) {
   return gltf.scene;
 }
 
-// 岛屿分布：中心主岛 03 + 环形 2 圈
-// 中心：主岛 03（10m 最大）
-// 外圈 r=18：8 个（岛01-08，大岛）
-// 内圈 r=10：7 个（岛09-16，中小岛）
+// 轻量布局：1 海面 + 5 岛（主岛 03 + 4 卫星岛 01/05/09/13）
 const ISLAND_LAYOUT = [
-  { id: '03', r: 0,  a: 0    },  // 主岛中心
-  // 外圈 r=18：8 个大岛
-  { id: '01', r: 18, a: 0    }, { id: '02', r: 18, a: 45   },
-  { id: '04', r: 18, a: 90   }, { id: '05', r: 18, a: 135  },
-  { id: '06', r: 18, a: 180  }, { id: '07', r: 18, a: 225  },
-  { id: '08', r: 18, a: 270  }, { id: '10', r: 18, a: 315  },
-  // 内圈 r=10：7 个中小岛
-  { id: '09', r: 10, a: 25   }, { id: '11', r: 10, a: 90   },
-  { id: '12', r: 10, a: 155  }, { id: '13', r: 10, a: 220  },
-  { id: '14', r: 10, a: 285  }, { id: '15', r: 10, a: 340  },
-  { id: '16', r: 6,  a: 180  },  // 16 号带码头小屋，放主岛南侧空隙
+  { id: '03', r: 0,   a: 0    },  // 主岛中心 200m
+  { id: '01', r: 400, a: 0    },  // 卫星岛 360m
+  { id: '05', r: 400, a: 90   },
+  { id: '09', r: 250, a: 45   },
+  { id: '13', r: 250, a: 225  },
 ];
 
-// 矿藏分布：铜矿(常见)→外圈、银矿→内圈、金矿(稀有)→主岛周围
 const ORE_LAYOUT = [
-  // 铜矿（3 档，分布外圈）
-  { ore: 'copper_small',   pos: [-12, 0, 12] },
-  { ore: 'copper_medium',  pos: [14, 0, -8] },
-  { ore: 'copper_large',   pos: [-14, 0, -10] },
-  // 银矿（3 档，内圈）
-  { ore: 'silver_small',   pos: [8, 0, 8] },
-  { ore: 'silver_medium',  pos: [-8, 0, 8] },
-  { ore: 'silver_large',   pos: [6, 0, -8] },
-  // 金矿（3 档，主岛周围）
-  { ore: 'gold_small',     pos: [-4, 0, 5] },
-  { ore: 'gold_medium',    pos: [5, 0, -3] },
-  { ore: 'gold_large',     pos: [0, 0, 0] },
+  // 铜（外圈）
+  { ore: 'copper_medium', pos: [380, 0, 0] },
+  { ore: 'copper_large',  pos: [-380, 0, 0] },
+  // 银（中圈）
+  { ore: 'silver_medium', pos: [0, 0, 280] },
+  // 金（主岛周围）
+  { ore: 'gold_small',   pos: [120, 0, 80] },
+  { ore: 'gold_medium',  pos: [-100, 0, -80] },
+  { ore: 'gold_large',   pos: [0, 0, 0] },
 ];
 
 async function init() {
-  const setStatus = t => statusEl.textContent = t;
   try {
-    // 海面（放中心，y=0 顶面）
-    setStatus('加载海面...');
     const ocean = await loadGLB('assets/terrain/terrain_ocean.glb');
     ocean.position.set(0, 0, 0);
     scene.add(ocean);
+    statusEl.textContent = '加载 5 岛...';
 
-    // 岛屿（环形）
-    setStatus('加载 16 座岛屿...');
-    let cnt = 0;
-    for (const item of ISLAND_LAYOUT) {
-      const rad = item.a * Math.PI / 180;
-      const m = await loadGLB(`assets/terrain/terrain_island_${item.id}.glb`);
-      // 岛锚点=基座底(y=0)，坐海面上；朝向切线方向
-      m.position.set(item.r * Math.cos(rad), 0, item.r * Math.sin(rad));
+    for (const it of ISLAND_LAYOUT) {
+      const rad = it.a * Math.PI / 180;
+      const m = await loadGLB(`assets/terrain/terrain_island_${it.id}.glb`);
+      m.position.set(it.r * Math.cos(rad), 0, it.r * Math.sin(rad));
       m.rotation.y = rad + Math.PI/2;
       scene.add(m);
-      cnt++;
     }
-    // 主岛 03 移到中心（覆盖内圈 14 的位置附近 → 放 r=6, a=90 避免重叠）
-    // 简化：主岛03 直接放在中心 r=6 a=90 处（若和别的重叠，视觉上也还行）
-    setStatus(`已加载 ${cnt} 岛，加载矿藏...`);
+    statusEl.textContent = '加载 6 矿...';
 
-    // 矿藏（放在海面上，y=0 起）
-    let o = 0;
-    for (const item of ORE_LAYOUT) {
-      const m = await loadGLB(`assets/props/ore_${item.ore}.glb`);
-      m.position.set(item.pos[0], 0, item.pos[2]);
+    for (const it of ORE_LAYOUT) {
+      const m = await loadGLB(`assets/props/ore_${it.ore}.glb`);
+      m.position.set(it.pos[0], 0, it.pos[2]);
       scene.add(m);
-      o++;
     }
 
-    setStatus(`✅ 海洋地图就绪：1 海面 + ${cnt} 岛 + ${o} 矿（铜/银/金 × 小/中/大）`);
-    document.getElementById('loading').style.display = 'none';
+    statusEl.textContent = '✅ 就绪：1 海面 + 5 岛 + 6 矿';
+    await new Promise(r => setTimeout(r, 1500));
   } catch (e) {
-    setStatus('❌ 加载失败: ' + e.message);
-    console.error(e);
+    statusEl.textContent = '❌ ' + e.message;
   }
 }
 
@@ -188,13 +153,7 @@ function animate() {
   renderer.render(scene, camera);
 }
 animate();
-
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
-
+window.addEventListener('resize', () => { camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
 init();
 </script>
 </body>
