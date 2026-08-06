@@ -40,6 +40,15 @@ const viewer = document.getElementById('viewer');
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB);
 
+// HY3 半写实鸭子图作为背景插画（半透明叠加）
+const bgLoader = new THREE.TextureLoader();
+let hy3BgTex = null;
+bgLoader.load('generated-images/duck_semi_alpha.png', tex => {
+  hy3BgTex = tex;
+  hy3BgTex.colorSpace = THREE.SRGBColorSpace;
+  scene.background = tex;  // 3D 场景背景用 HY3 鸭子图（呈现半写实风视觉）
+});
+
 const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.1, 100);
 camera.position.set(1.5, 1.2, 2.5);
 
@@ -90,15 +99,11 @@ async function init() {
     const gltf = await loader.loadAsync('assets/animals/animal_duck_white.glb');
     duck = gltf.scene;
     duck.scale.setScalar(3);
-    // 让 Kenney 模型的 toon 着色柔和
+    // Kenney 真 3D 鸭子角色（无 HY3 贴图避免失真）
     duck.traverse(o => {
       if (o.isMesh) {
         o.castShadow = o.receiveShadow = true;
-        // 保留模型自带的 baseColorTexture，Lambert 柔和光照
-        o.material = new THREE.MeshLambertMaterial({
-          color: 0xffffff,
-          map: o.material && (o.material.map || (o.material.pbrMetallicRoughness && o.material.pbrMetallicRoughness.baseColorTexture)) || null,
-        });
+        o.material = new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true });
       }
     });
     scene.add(duck);
