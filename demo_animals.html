@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>HY3D 动物（混元 3D AI 生成 · pivot+lerp 走动/低头）</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:"Microsoft YaHei",sans-serif; background:#1a2332; color:#eee; overflow:hidden; }
+  #viewer { position:absolute; inset:0; }
+  #panel { position:absolute; top:12px; left:50%; transform:translateX(-50%); background:rgba(20,28,40,.85);
+    border:1px solid rgba(255,255,255,.15); border-radius:12px; padding:10px 18px; display:flex; gap:12px; align-items:center; z-index:10; }
+  .btn { background:#2b3a52; color:#dfe9f5; border:1px solid #3d5068; padding:7px 16px; border-radius:8px; font-size:13px; cursor:pointer; }
+  .btn.active { background:#4a9de0; border-color:#6cb8f0; color:#fff; }
+  #status { position:absolute; bottom:14px; left:50%; transform:translateX(-50%); background:rgba(20,28,40,.8);
+    border:1px solid rgba(255,255,255,.12); border-radius:10px; padding:8px 16px; font-size:13px; color:#b8c8dc; z-index:10; text-align:center; }
+</style>
+</head>
+<body>
+<div id="viewer"></div>
+<div id="panel">
+  <span style="font-size:13px;color:#8fa8c8">模型：</span>
+  <select id="selAnimal" style="background:#2b3a52;color:#dfe9f5;border:1px solid #3d5068;border-radius:8px;padding:6px 10px;font-size:13px">
+    <option value="hy3_cat.glb">🐱 猫</option>
+    <option value="hy3_dog.glb">🐶 狗</option>
+    <option value="hy3_sheep.glb">🐑 羊</option>
+    <option value="hy3_chicken.glb">🐔 鸡</option>
+    <option value="hy3_pig.glb">🐷 猪</option>
+    <option value="hy3_cow.glb">🐮 牛</option>
+  </select>
+  <button class="btn" id="btnWalk">🚶 走动</button>
+  <button class="btn" id="btnEat">🐛 低头吃食</button>
+  <button class="btn" id="btnIdle" class="active">🧍 待机</button>
+</div>
+<div id="status">加载中...</div>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three/build/three.module.js", "three/addons/": "./vendor/three/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const viewer = document.getElementById('viewer');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87CEEB);
+const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.1, 200);
+camera.position.set(2.5, 1.6, 3.5);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+renderer.shadowMap.enabled = true;
+viewer.appendChild(renderer.domElement);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0.5, 0);
+controls.enableDamping = true;
+
+scene.add(new THREE.HemisphereLight(0xDFEBFF, 0xFFF0D0, 2.2));
+const sun = new THREE.DirectionalLight(0xFFF8E8, 2.8);
+sun.position.set(5, 8, 4); sun.castShadow = true;
+scene.add(sun);
+const fill = new THREE.DirectionalLight(0xCFE8FF, 1.0);
+fill.position.set(-4, 3, -2);
+scene.add(fill);
+
+const ground = new THREE.Mesh(new THREE.CircleGeometry(5, 32), new THREE.MeshLambertMaterial({ color: 0x8BC34A }));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true;
+scene.add(ground);
+
+const loader = new GLTFLoader();
+const statusEl = document.getElementById('status');
+let animal = null, pivot = null;
+let mode = 'idle', time = 0;
+
+// ============ 标准动画：pivot 枢轴（原点=脚底）+ lerp 平滑 ============
+async function loadAnimal(path) {
+  statusEl.textContent = '⏳ 加载 ' + path + '...';
+  try {
+    if (animal) { scene.remove(pivot); animal.traverse(o => o.geometry && o.geometry.dispose && o.geometry.dispose()); }
+    const gltf = await loader.loadAsync(path);
+    animal = gltf.scene;
+    animal.scale.setScalar(1.5);
+    // 保留 HY3D PBR baseColorTexture 颜色
+    animal.traverse(o => {
+      if (o.isMesh) {
+        o.castShadow = o.receiveShadow = true;
+        o.material = new THREE.MeshLambertMaterial({
+          color: 0xffffff,
+          map: o.material && (o.material.map || (o.material.pbrMetallicRoughness && o.material.pbrMetallicRoughness.baseColorTexture)) || null,
+        });
+      }
+    });
+    // pivot 枢轴：原点 = 脚底（HY3D 模型 bounds min_y = 0）
+    pivot = new THREE.Group();
+    pivot.position.set(0, 0, 0);
+    scene.add(pivot);
+    pivot.add(animal);
+    statusEl.textContent = '✅ ' + path + ' 就绪 — 走动/低头动画（pivot+lerp）';
+  } catch (e) {
+    statusEl.textContent = '❌ ' + e.message;
+    console.error(e);
+  }
+}
+
+const lerp = (a, b, t) => a + (b - a) * t;
+function setMode(m) {
+  mode = m; time = 0;
+  document.querySelectorAll('#panel .btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(m === 'walk' ? 'btnWalk' : m === 'eat' ? 'btnEat' : 'btnIdle').classList.add('active');
+}
+function animateAnimal(dt) {
+  if (!animal || !pivot) return;
+  if (mode === 'walk') {
+    pivot.rotation.x = lerp(pivot.rotation.x, 0, 0.1);
+    animal.position.y = Math.abs(Math.sin(time * 6)) * 0.05;
+    animal.rotation.z = Math.sin(time * 6) * 0.04;
+  } else if (mode === 'eat') {
+    animal.position.y = lerp(animal.position.y, 0, 0.1);
+    animal.rotation.z = lerp(animal.rotation.z, 0, 0.1);
+    pivot.rotation.x = lerp(pivot.rotation.x, 0.7, 0.08);  // 绕脚底前倾 40°
+    if (pivot.rotation.x > 0.6) pivot.rotation.x += Math.sin(time * 4) * 0.01;  // 点头
+  } else {
+    pivot.rotation.x = lerp(pivot.rotation.x, 0, 0.1);
+    animal.position.y = lerp(animal.position.y, 0, 0.1);
+    animal.rotation.z = lerp(animal.rotation.z, 0, 0.1);
+  }
+  window.__pivotRotX = pivot.rotation.x;
+}
+let lastT = performance.now();
+function animate() {
+  requestAnimationFrame(animate);
+  const now = performance.now();
+  const dt = Math.min(0.05, (now - lastT) / 1000);
+  lastT = now; time += dt;
+  animateAnimal(dt);
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+window.addEventListener('resize', () => { camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+document.getElementById('btnWalk').onclick = () => setMode('walk');
+document.getElementById('btnEat').onclick = () => setMode('eat');
+document.getElementById('btnIdle').onclick = () => setMode('idle');
+document.getElementById('selAnimal').onchange = e => loadAnimal(e.target.value);
+loadAnimal('hy3_cat.glb');
+</script>
+</body>
+</html>
