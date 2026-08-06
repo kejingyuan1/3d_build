@@ -1,12 +1,14 @@
-"""HY3D 模型程序化绑骨 + 蒙皮（鸭子 2 足版）
-- 读 HY3D 单 mesh GLB（POSITION/NORMAL/TEXCOORD_0）
-- 按 Y 高度分区：低 Y = 腿区域（分左右），高 Y = 身体
-- 创建骨骼：root(身体) → leg_l / leg_r（腿）
-- 顶点权重：腿顶点绑对应腿，身体顶点绑 root，过渡带混合
-- 输出 GLB：JOINTS_0 + WEIGHTS_0 + skin + animation（walk 腿摆动 / eat 低头）
+"""HY3D 模型绑骨+蒙皮 v2（保留 PBR 颜色）
+关键修复：
+1. 读 hy3_duck_body.glb（保留 baseColorTexture/PBR 颜色）—— 不重建几何
+2. 只添加 skin + JOINTS_0 + WEIGHTS_0 + animations
+3. IBM 正确：joints 位置 = 关节在 mesh 局部坐标 → IBM = 平移到 -joint_pos（bind pose 站立不倒）
+4. 顶点权重：腿区域→对应腿关节，身体→root
+5. 输出新 GLB：原 PBR 完整保留 + 真骨骼动画
 """
 import sys, struct, json
 import numpy as np
+
 
 def read_glb(path):
     with open(path, 'rb') as f:
@@ -19,54 +21,94 @@ def read_glb(path):
     bin_data = data[off+8:off+8+blen]
     return j, bin_data
 
-def get_acc(j, bin_data, ai):
+
+def get_acc_bytes(j, bin_data, ai):
+    """读 accessor 的原始 bytes（不是按 count reshape）"""
     a = j['accessors'][ai]
     bv = j['bufferViews'][a['bufferView']]
-    dt = {5126: np.float32, 5125: np.uint32, 5121: np.uint8}[a['componentType']]
+    dt = {5126: 4, 5125: 4, 5121: 1, 5123: 2, 5122: 2, 5120: 1, 5124: 1}[a['componentType']]
+    nbytes = bv['byteLength']
+    offset = bv.get('byteOffset', 0)
+    return bin_data[offset:offset+nbytes]
+
+
+def get_acc_array(j, bin_data, ai):
+    a = j['accessors'][ai]
+    bv = j['bufferViews'][a['bufferView']]
+    dt = {5126: np.float32, 5125: np.uint32, 5121: np.uint8, 5123: np.uint16}[a['componentType']]
     nbytes = bv['byteLength']
     offset = bv.get('byteOffset', 0)
     arr = np.frombuffer(bin_data, dtype=dt, count=nbytes // np.dtype(dt).itemsize, offset=offset)
     dims = {'SCALAR': 1, 'VEC2': 2, 'VEC3': 3, 'VEC4': 4, 'MAT4': 16}[a['type']]
-    n = a['count']
     if dims > 1:
-        arr = arr.reshape(n, dims)
+        arr = arr.reshape(a['count'], dims)
     else:
-        arr = arr[:n]
+        arr = arr[:a['count']]
     return arr.copy()
+
 
 def main(in_path, out_path, legs=2):
     j, bin_data = read_glb(in_path)
-    # 取 mesh primitive
+
+    # 1. 提取 primitive 现有数据（POSITION/NORMAL/TEXCOORD_0/indices）
     prim = j['meshes'][0]['primitives'][0]
     attrs = prim['attributes']
-    pos = get_acc(j, bin_data, attrs['POSITION'])
-    nrm = get_acc(j, bin_data, attrs['NORMAL'])
-    uv = get_acc(j, bin_data, attrs['TEXCOORD_0'])
-    idx = get_acc(j, bin_data, prim['indices'])
-
+    pos = get_acc_array(j, bin_data, attrs['POSITION'])
+    nrm = get_acc_array(j, bin_data, attrs['NORMAL'])
+    uv = get_acc_array(j, bin_data, attrs['TEXCOORD_0'])
+    idx = get_acc_array(j, bin_data, prim['indices'])
     nv = len(pos)
+    print(f'原 GLB: {nv} 顶点, material={j.get("materials",[{}])[0].get("name","none")}')
+
+    # 1.5. 提取原 GLB 的 image bytes（关键：保留 PBR 颜色必须把 PNG 复制到新 bin）
+    # 原 images[0].bufferView 指向原 bufferView 索引；新 GLB 重组后该索引需指向新位置
+    orig_images = j.get('images', [])
+    orig_textures = j.get('textures', [])
+    orig_samplers = j.get('samplers', [])
+    orig_materials = j.get('materials', [])
+    image_bytes_list = []
+    orig_img_bv_indices = []  # 原 bufferView 索引（用于重新指向）
+    for img in orig_images:
+        bv_idx = img.get('bufferView')
+        if bv_idx is None:
+            image_bytes_list.append(b'')
+            orig_img_bv_indices.append(None)
+            continue
+        bv = j['bufferViews'][bv_idx]
+        offset = bv.get('byteOffset', 0)
+        length = bv['byteLength']
+        image_bytes_list.append(bin_data[offset:offset+length])
+        orig_img_bv_indices.append(bv_idx)
+
+    # 2. 关节位置（mesh 局部坐标）
     y_min, y_max = pos[:, 1].min(), pos[:, 1].max()
     height = y_max - y_min
-    # 腿区域：底部 25% 高度（鸭子站姿，腿短）
-    leg_top = y_min + height * 0.25
-    # 分区
+    leg_top = y_min + height * 0.30  # 腿根高度（30% 处）
     body_mask = pos[:, 1] > leg_top
     leg_mask = ~body_mask
-    leg_l = leg_mask & (pos[:, 0] < 0)   # 左腿（x<0）
-    leg_r = leg_mask & (pos[:, 0] >= 0)  # 右腿
+    leg_l = leg_mask & (pos[:, 0] < 0)
+    leg_r = leg_mask & (pos[:, 0] >= 0)
+    print(f'腿区域: {leg_mask.sum()} (左{leg_l.sum()}/右{leg_r.sum()}), leg_top={leg_top:.2f}')
 
-    # 骨骼位置（关节在网格局部坐标）
-    root_pos = np.array([0, leg_top, 0], dtype=np.float32)   # 身体/髋部
-    leg_l_pos = np.array([pos[leg_l, 0].mean() if leg_l.any() else -0.2, leg_top * 0.5, pos[leg_l, 2].mean() if leg_l.any() else 0], dtype=np.float32)
-    leg_r_pos = np.array([pos[leg_r, 0].mean() if leg_r.any() else 0.2, leg_top * 0.5, pos[leg_r, 2].mean() if leg_r.any() else 0], dtype=np.float32)
-
-    joints = [root_pos, leg_l_pos, leg_r_pos]  # index 0,1,2
+    # 关节位置
+    if legs == 2:
+        root_pos = np.array([0.0, leg_top, 0.0], dtype=np.float32)
+        leg_l_pos = np.array([
+            pos[leg_l, 0].mean() if leg_l.any() else -0.2,
+            leg_top * 0.5,
+            pos[leg_l, 2].mean() if leg_l.any() else 0.0
+        ], dtype=np.float32)
+        leg_r_pos = np.array([
+            pos[leg_r, 0].mean() if leg_r.any() else 0.2,
+            leg_top * 0.5,
+            pos[leg_r, 2].mean() if leg_r.any() else 0.0
+        ], dtype=np.float32)
+        joints = [root_pos, leg_l_pos, leg_r_pos]
     n_joints = len(joints)
 
-    # 顶点权重：身体→root，腿→对应腿（过渡带 60%:40%）
+    # 3. 权重（硬权：腿→腿，身体→root）
     weights = np.zeros((nv, 4), dtype=np.float32)
     joints_idx = np.zeros((nv, 4), dtype=np.uint8)
-    weights[:, 0] = 1.0
     for i in range(nv):
         if leg_l[i]:
             joints_idx[i] = [1, 0, 0, 0]
@@ -74,16 +116,17 @@ def main(in_path, out_path, legs=2):
         elif leg_r[i]:
             joints_idx[i] = [2, 0, 0, 0]
             weights[i] = [1.0, 0.0, 0.0, 0.0]
-        # body 保持 root
+        else:
+            joints_idx[i] = [0, 0, 0, 0]
+            weights[i] = [1.0, 0.0, 0.0, 0.0]
 
-    # inverse bind matrices（关节位置的逆平移）
+    # 4. IBM（joints 位置→mesh 局部坐标的平移，bind pose 站立）
     ibm = np.zeros((n_joints, 4, 4), dtype=np.float32)
     for i, jp in enumerate(joints):
         ibm[i] = np.eye(4, dtype=np.float32)
-        ibm[i][:3, 3] = -jp
+        ibm[i][:3, 3] = -jp  # 平移到 -joint_pos
 
-    # 组装 GLB：原数据 + JOINTS_0 + WEIGHTS_0 + skin + animation
-    # buffer: pos + nrm + uv + idx + joints + weights + ibm
+    # 5. 准备 buffer（按顺序追加：joints_idx → weights → ibm）
     pos_b = np.ascontiguousarray(pos, dtype=np.float32).tobytes()
     nrm_b = np.ascontiguousarray(nrm, dtype=np.float32).tobytes()
     uv_b = np.ascontiguousarray(uv, dtype=np.float32).tobytes()
@@ -92,172 +135,182 @@ def main(in_path, out_path, legs=2):
     wt_b = np.ascontiguousarray(weights, dtype=np.float32).tobytes()
     ibm_b = np.ascontiguousarray(ibm, dtype=np.float32).tobytes()
 
-    chunks = [pos_b, nrm_b, uv_b, idx_b, jt_b, wt_b, ibm_b]
-    bin_parts, offsets, cur = [], [], 0
+    # 动画 buffer（walk + eat）
+    n_w = 5
+    t_w = np.array([0, 0.25, 0.5, 0.75, 1.0], dtype=np.float32)
+    # leg_l 0 → 0.7rad → 0 → -0.7rad → 0（quaternion xyzw）
+    ql = lambda a: (np.sin(a/2), 0, 0, np.cos(a/2))
+    leg_l_rot = np.array([ql(0), ql(0.7), ql(0), ql(-0.7), ql(0)], dtype=np.float32)
+    leg_r_rot = np.array([ql(0), ql(-0.7), ql(0), ql(0.7), ql(0)], dtype=np.float32)
+    root_rot_w = np.tile([0, 0, 0, 1.0], (n_w, 1)).astype(np.float32)
+    n_e = 3
+    t_e = np.array([0, 0.5, 1.0], dtype=np.float32)
+    root_rot_e = np.array([ql(0), ql(0.7), ql(0)], dtype=np.float32)
+    walk_t_b = t_w.tobytes()
+    leg_l_r_b = leg_l_rot.tobytes()
+    leg_r_r_b = leg_r_rot.tobytes()
+    root_rw_b = root_rot_w.tobytes()
+    eat_t_b = t_e.tobytes()
+    root_re_b = root_rot_e.tobytes()
+
+    # 6. 拼装 buffer（按顺序追加：pos/nrm/uv/idx → joints/weights/ibm → 动画 → 原 image bytes）
+    chunks = [pos_b, nrm_b, uv_b, idx_b, jt_b, wt_b, ibm_b,
+              walk_t_b, leg_l_r_b, walk_t_b, leg_r_r_b, walk_t_b, root_rw_b,
+              eat_t_b, root_re_b]
+    # 追加原 image PNG bytes（保留 PBR 颜色！）
+    for img_b in image_bytes_list:
+        chunks.append(img_b)
+    bin_parts = []
+    offsets = []
+    cur = 0
     for b in chunks:
         pad = (-cur) % 4
-        if pad: bin_parts.append(b'\x00'*pad); cur += pad
+        if pad:
+            bin_parts.append(b'\x00' * pad)
+            cur += pad
         offsets.append(cur)
         bin_parts.append(b)
         cur += len(b)
-    bin_data_new = b''.join(bin_parts)
+    bin_all = b''.join(bin_parts)
 
-    p_off, n_off, u_off, ix_off, jt_off, wt_off, ibm_off = offsets
-    # bufferViews: 0 pos,1 nrm,2 uv,3 idx,4 joints,5 weights,6 ibm
-    bvs = [
-        {"buffer":0,"byteOffset":p_off,"byteLength":len(pos_b),"target":34962},
-        {"buffer":0,"byteOffset":n_off,"byteLength":len(nrm_b),"target":34962},
-        {"buffer":0,"byteOffset":u_off,"byteLength":len(uv_b),"target":34962},
-        {"buffer":0,"byteOffset":ix_off,"byteLength":len(idx_b),"target":34963},
-        {"buffer":0,"byteOffset":jt_off,"byteLength":len(jt_b),"target":34962},
-        {"buffer":0,"byteOffset":wt_off,"byteLength":len(wt_b),"target":34962},
-        {"buffer":0,"byteOffset":ibm_off,"byteLength":len(ibm_b),"target":0},
-    ]
-    # accessors: 0 pos,1 nrm,2 uv,3 idx,4 joints,5 weights,6 ibm
-    accs = [
-        {"bufferView":0,"componentType":5126,"count":nv,"type":"VEC3","min":pos.min(0).tolist(),"max":pos.max(0).tolist()},
-        {"bufferView":1,"componentType":5126,"count":nv,"type":"VEC3"},
-        {"bufferView":2,"componentType":5126,"count":nv,"type":"VEC2"},
-        {"bufferView":3,"componentType":5125,"count":len(idx),"type":"SCALAR"},
-        {"bufferView":4,"componentType":5121,"count":nv,"type":"VEC4"},
-        {"bufferView":5,"componentType":5126,"count":nv,"type":"VEC4"},
-        {"bufferView":6,"componentType":5126,"count":n_joints,"type":"MAT4"},
-    ]
-    # 节点：0 world, 1 root(关节), 2 leg_l, 3 leg_r, 4 skinned_mesh（mesh + skin 引用，挂在 root 下）
+    # 7. 构造 GLB JSON
+    # 原 accessors（pos/nrm/uv/idx）+ 新增 joints/weights/ibm + 动画 accessors
+    # 原 accessors 索引 0-3（pos/nrm/uv/idx）保留
+    new_accs = list(j['accessors'])
+    # 新增 4: JOINTS_0(VEC4 uint8), 5: WEIGHTS_0(VEC4 float)
+    new_accs.append({"bufferView": 4, "componentType": 5121, "count": nv, "type": "VEC4"})
+    new_accs.append({"bufferView": 5, "componentType": 5126, "count": nv, "type": "VEC4"})
+    new_accs.append({"bufferView": 6, "componentType": 5126, "count": n_joints, "type": "MAT4"})
+
+    # 动画 accessors：3 个 walk time + 3 个 walk rot + 1 个 eat time + 1 个 eat rot = 8 个
+    walk_t_idx = len(new_accs); new_accs.append({"bufferView": 7, "componentType": 5126, "count": n_w, "type": "SCALAR", "min": [0.0], "max": [1.0]})
+    leg_l_r_idx = len(new_accs); new_accs.append({"bufferView": 8, "componentType": 5126, "count": n_w, "type": "VEC4"})
+    leg_r_r_idx = len(new_accs); new_accs.append({"bufferView": 10, "componentType": 5126, "count": n_w, "type": "VEC4"})
+    root_rw_idx = len(new_accs); new_accs.append({"bufferView": 12, "componentType": 5126, "count": n_w, "type": "VEC4"})
+    eat_t_idx = len(new_accs); new_accs.append({"bufferView": 14, "componentType": 5126, "count": n_e, "type": "SCALAR", "min": [0.0], "max": [1.0]})
+    root_re_idx = len(new_accs); new_accs.append({"bufferView": 15, "componentType": 5126, "count": n_e, "type": "VEC4"})
+
+    # 8. bufferViews：原 0-3（pos/nrm/uv/idx，跳过 image 的 4）+ 新增（joints/weights/ibm + 动画 + 追加的 image）
+    # 原 GLB 有 5 个 bufferView（0-3 几何 + 4 = image），我们跳过原 4（image bytes 走 image_bytes_list 追加路径）
+    orig_bv = j['bufferViews']
+    skip_orig_indices = set()  # 跳过原 image 的 bufferView
+    for img in orig_images:
+        if img.get('bufferView') is not None:
+            skip_orig_indices.add(img['bufferView'])
+    new_bvs = []
+    for i, bv in enumerate(orig_bv):
+        if i in skip_orig_indices:
+            continue  # image 走末尾追加
+        new_bvs.append(bv)
+    # 新增 4=joints/5=weights/6=ibm
+    new_bvs.append({"buffer": 0, "byteOffset": offsets[4], "byteLength": len(jt_b)})
+    new_bvs.append({"buffer": 0, "byteOffset": offsets[5], "byteLength": len(wt_b)})
+    new_bvs.append({"buffer": 0, "byteOffset": offsets[6], "byteLength": len(ibm_b)})
+    # 动画 bufferViews
+    for i in range(7, 15):
+        b_chunk = chunks[i]
+        new_bvs.append({"buffer": 0, "byteOffset": offsets[i], "byteLength": len(b_chunk)})
+    # 原 image PNG bytes 的 bufferView（追加在末尾）
+    image_bv_indices = []
+    for i, img_b in enumerate(image_bytes_list):
+        bv_idx = len(new_bvs)
+        new_bvs.append({"buffer": 0, "byteOffset": offsets[15 + i], "byteLength": len(img_b)})
+        image_bv_indices.append(bv_idx)
+
+    # 9. 修改 primitive 引用 JOINTS_0 + WEIGHTS_0
+    new_attrs = dict(attrs)
+    new_attrs['JOINTS_0'] = 4
+    new_attrs['WEIGHTS_0'] = 5
+
+    # 10. 节点：world, root(关节), leg_l, leg_r, skinned_mesh
+    # 关键：joint 节点必须有 translation（与 IBM 中的 joint_pos 一致）—— 否则 bind pose 错位
     nodes = [
-        {"name":"world","children":[1]},
-        {"name":"root","children":[2,3,4]},
-        {"name":"leg_l","children":[]},
-        {"name":"leg_r","children":[]},
-        {"name":"skinned_mesh","mesh":0,"skin":0},  # 关键：同时引用 mesh 和 skin → SkinnedMesh
+        {"name": "world", "children": [1]},
+        {"name": "root", "translation": joints[0].tolist(), "children": [2, 3, 4]},
+        {"name": "leg_l", "translation": joints[1].tolist(), "children": []},
+        {"name": "leg_r", "translation": joints[2].tolist(), "children": []},
+        {"name": "skinned_mesh", "mesh": 0, "skin": 0},
     ]
-    # mesh 引用 skin
-    mesh = [{"name":"animal","primitives":[{
-        "attributes":{"POSITION":0,"NORMAL":1,"TEXCOORD_0":2,"JOINTS_0":4,"WEIGHTS_0":5},
-        "indices":3,"mode":4,
-    }]}]
-    skins = [{"joints":[1,2,3],"inverseBindMatrices":6,"skeleton":1}]
-    # scene: world
-    scenes = [{"nodes":[0]}]
-    # animation: walk (leg_l/leg_r rotation.x 交替) + eat (root rotation.x)
-    # keyframes 0/0.5/1s
-    t0, t1, t2 = 0.0, 0.5, 1.0
-    def rot_x_channel(node_idx, kf_rots):
-        """kf_rots: list of [t, rx]"""
-        times = np.array([k[0] for k in kf_rots], dtype=np.float32)
-        rots = []
-        for t, rx in kf_rots:
-            c, s = np.cos(rx/2), np.sin(rx/2)
-            rots.append([s, 0, 0, c])  # xyz, w
-        rots = np.array(rots, dtype=np.float32)
-        return times, rots
 
-    # walk: leg_l swing 0→+0.7→0→-0.7→0, leg_r 反向
-    t_w = np.array([0, 0.25, 0.5, 0.75, 1.0], dtype=np.float32)
-    leg_l_rot = np.array([[0,0,0,1],[0.34,0,0,0.94],[0,0,0,1],[-0.34,0,0,0.94],[0,0,0,1]], dtype=np.float32)
-    leg_r_rot = np.array([[0,0,0,1],[-0.34,0,0,0.94],[0,0,0,1],[0.34,0,0,0.94],[0,0,0,1]], dtype=np.float32)
-    root_rot_w = np.tile([[0,0,0,1]], (5,1)).astype(np.float32)
+    # 11. mesh（用原 mesh 但更新 attributes）
+    new_mesh = [{
+        "name": "animal",
+        "primitives": [{
+            "attributes": new_attrs,
+            "indices": prim['indices'],
+            "mode": 4,
+            "material": prim.get('material', 0),
+        }],
+    }]
 
-    # eat: root 0→0.7 (低头), 0.5s 后回
-    t_e = np.array([0, 0.5, 1.0], dtype=np.float32)
-    root_rot_e = np.array([[0,0,0,1],[0.34,0,0,0.94],[0,0,0,1]], dtype=np.float32)
+    # 12. skins
+    skins = [{"joints": [1, 2, 3], "skeleton": 1, "inverseBindMatrices": 6}]
 
-    def pack_kf(times, rots):
-        t_b = np.ascontiguousarray(times, dtype=np.float32).tobytes()
-        r_b = np.ascontiguousarray(rots, dtype=np.float32).tobytes()
-        return t_b, r_b, len(times)
+    # 13. 保留原 buffers（buffer 0，byteLength 设为新总长度）
+    new_buffer = [{"byteLength": len(bin_all)}]
 
-    # 动画 buffer 追加到 bin
-    anim_chunks = []  # (bytes, target)
-    anim_offsets = []
-    cur2 = cur
-    for t_b, r_b, _ in [pack_kf(t_w, leg_l_rot), pack_kf(t_w, leg_r_rot), pack_kf(t_w, root_rot_w),
-                        pack_kf(t_e, root_rot_e)]:
-        pad = (-cur2) % 4
-        if pad: anim_chunks.append(b'\x00'*pad); cur2 += pad
-        anim_offsets.append(cur2)
-        anim_chunks.append(t_b); cur2 += len(t_b)
-        anim_offsets.append(cur2)
-        anim_chunks.append(r_b); cur2 += len(r_b)
-    bin_all = bin_data_new + b''.join(anim_chunks)
-    base = len(bin_data_new)
+    # 14. 保留原 images 和 materials
+    # 原 images 是 baseColorTexture，material.pbrMetallicRoughness.baseColorTexture → image index
+    # 我们保留原 GLB 的 images 和 materials 引用
 
-    # 动画 accessor：walk: times(3 accessors) + rot(3)
-    acc_anim_start = len(accs)
-    walk_t0, walk_t1, walk_t2 = anim_offsets[0], anim_offsets[2], anim_offsets[4]
-    walk_r0, walk_r1, walk_r2 = anim_offsets[1], anim_offsets[3], anim_offsets[5]
-    eat_t0, eat_r0 = anim_offsets[6], anim_offsets[7]
-    n_walk = 5
-    anim_accs = [
-        {"bufferView": len(bvs)+0, "componentType": 5126, "count": n_walk, "type": "SCALAR",
-         "min":[0.0], "max":[1.0]},
-        {"bufferView": len(bvs)+1, "componentType": 5126, "count": n_walk, "type": "VEC4"},
-        {"bufferView": len(bvs)+2, "componentType": 5126, "count": n_walk, "type": "SCALAR",
-         "min":[0.0], "max":[1.0]},
-        {"bufferView": len(bvs)+3, "componentType": 5126, "count": n_walk, "type": "VEC4"},
-        {"bufferView": len(bvs)+4, "componentType": 5126, "count": n_walk, "type": "SCALAR",
-         "min":[0.0], "max":[1.0]},
-        {"bufferView": len(bvs)+5, "componentType": 5126, "count": n_walk, "type": "VEC4"},
-        {"bufferView": len(bvs)+6, "componentType": 5126, "count": 3, "type": "SCALAR",
-         "min":[0.0], "max":[1.0]},
-        {"bufferView": len(bvs)+7, "componentType": 5126, "count": 3, "type": "VEC4"},
-    ]
-    anim_bvs = [
-        {"buffer":0,"byteOffset":walk_t0,"byteLength":n_walk*4},
-        {"buffer":0,"byteOffset":walk_r0,"byteLength":n_walk*16},
-        {"buffer":0,"byteOffset":walk_t1,"byteLength":n_walk*4},
-        {"buffer":0,"byteOffset":walk_r1,"byteLength":n_walk*16},
-        {"buffer":0,"byteOffset":walk_t2,"byteLength":n_walk*4},
-        {"buffer":0,"byteOffset":walk_r2,"byteLength":n_walk*16},
-        {"buffer":0,"byteOffset":eat_t0,"byteLength":12},
-        {"buffer":0,"byteOffset":eat_r0,"byteLength":48},
-    ]
-    # channel: leg_l(node2) rotation walk, leg_r(node3) rotation walk, root(node1) rotation eat
-    acc_base = acc_anim_start
-    anim_walk = {
+    # 15. 构造 animations
+    walk_anim = {
         "name": "walk",
-        "channels": [
-            {"sampler":0,"target":{"node":2,"path":"rotation"}},
-            {"sampler":1,"target":{"node":3,"path":"rotation"}},
-        ],
         "samplers": [
-            {"input":acc_base+0,"output":acc_base+1,"interpolation":"LINEAR"},
-            {"input":acc_base+2,"output":acc_base+3,"interpolation":"LINEAR"},
+            {"input": walk_t_idx, "output": leg_l_r_idx, "interpolation": "LINEAR"},
+            {"input": walk_t_idx, "output": leg_r_r_idx, "interpolation": "LINEAR"},
+        ],
+        "channels": [
+            {"sampler": 0, "target": {"node": 2, "path": "rotation"}},  # leg_l
+            {"sampler": 1, "target": {"node": 3, "path": "rotation"}},  # leg_r
         ],
     }
-    anim_eat = {
+    eat_anim = {
         "name": "eat",
-        "channels": [
-            {"sampler":0,"target":{"node":1,"path":"rotation"}},
-        ],
         "samplers": [
-            {"input":acc_base+6,"output":acc_base+7,"interpolation":"LINEAR"},
+            {"input": eat_t_idx, "output": root_re_idx, "interpolation": "LINEAR"},
+        ],
+        "channels": [
+            {"sampler": 0, "target": {"node": 1, "path": "rotation"}},  # root
         ],
     }
+
+    # 16. 完整 GLB（修正 images[].bufferView 指向新 bufferView 索引 + 保留 materials/textures）
+    new_images = []
+    for i, img in enumerate(orig_images):
+        new_img = dict(img)
+        if image_bv_indices[i] is not None:
+            new_img['bufferView'] = image_bv_indices[i]  # 指向新追加的 PNG bufferView
+        new_images.append(new_img)
 
     gltf = {
-        "asset": {"version":"2.0","generator":"gen_skel_animals v1"},
+        "asset": j['asset'],
         "scene": 0,
-        "scenes": scenes,
+        "scenes": [{"nodes": [0]}],
         "nodes": nodes,
-        "meshes": mesh,
+        "meshes": new_mesh,
         "skins": skins,
-        "buffers": [{"byteLength": len(bin_all)}],
-        "bufferViews": bvs + anim_bvs,
-        "accessors": accs + anim_accs,
-        "animations": [anim_walk, anim_eat],
+        "buffers": new_buffer,
+        "bufferViews": new_bvs,
+        "accessors": new_accs,
+        "animations": [walk_anim, eat_anim],
+        # 保留原 materials 和 images（bufferView 已修正）
+        "materials": orig_materials,
+        "images": new_images,
+        "textures": orig_textures,
+        "samplers": orig_samplers,
     }
     json_str = json.dumps(gltf, separators=(',', ':')).encode('utf-8')
     pad = (-len(json_str)) % 4
     json_str_padded = json_str + b' ' * pad
-    glb = b'glTF' + struct.pack('<II', 2, 12+8+len(json_str_padded)+8+len(bin_all))
+    glb = b'glTF' + struct.pack('<II', 2, 12 + 8 + len(json_str_padded) + 8 + len(bin_all))
     glb += struct.pack('<II', len(json_str_padded), 0x4E4F534A) + json_str_padded
     glb += struct.pack('<II', len(bin_all), 0x004E4942) + bin_all
     with open(out_path, 'wb') as f:
         f.write(glb)
-    print(f'[OK] 绑骨完成 → {out_path}')
-    print(f'  顶点={nv} 骨骼={n_joints} 腿区域={leg_mask.sum()} (左{leg_l.sum()}/右{leg_r.sum()})')
-    print(f'  animations: walk(腿摆动) + eat(低头)')
+    print(f'[OK] v2 绑骨（保留 PBR 颜色）→ {out_path}')
+    print(f'  顶点={nv}, 骨骼={n_joints}, materials={len(j.get("materials",[]))}, images={len(j.get("images",[]))}')
+
 
 if __name__ == '__main__':
     main('hy3_duck_body.glb', 'hy3_duck_skel.glb', legs=2)
