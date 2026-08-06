@@ -71,22 +71,27 @@ let mode = 'idle', time = 0;
 
 async function init() {
   try {
-    const gltf = await loader.loadAsync('assets/animals/animal_duck_white.glb');
+    // 直接加载混元 3D 鸭子（保留 PBR baseColorTexture 颜色：黄嘴/黑眼/白身）
+    const gltf = await loader.loadAsync('hy3_duck_body.glb');
     duck = gltf.scene;
-    // 混元模型较大（47MB，90万面），适当缩放展示
     duck.scale.setScalar(1.2);
+    // 让 PBR 材质转换为 Lambert 柔和（保留 map 颜色）
     duck.traverse(o => {
       if (o.isMesh) {
         o.castShadow = o.receiveShadow = true;
-        o.material = new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true });
+        if (o.material) {
+          // 保留 baseColorTexture 颜色（黄嘴/黑眼/白身），Lambert 光照柔和
+          o.material = new THREE.MeshLambertMaterial({
+            color: 0xffffff,
+            map: o.material.map || (o.material.pbrMetallicRoughness && o.material.pbrMetallicRoughness.baseColorTexture) || null,
+          });
+        }
       }
     });
     scene.add(duck);
-    body = duck.getObjectByName('body');
-    footL = duck.getObjectByName('foot_l');
-    footR = duck.getObjectByName('foot_r');
-    statusEl.textContent = '✅ 混元 3D 鸭子就绪（HY3 AI 生成身体+脚，分离式组装）— 点击按钮看走路/低头';
-    console.log('节点:', body ? 'body✓' : 'body✗', footL ? 'footL✓' : 'footL✗', footR ? 'footR✓' : 'footR✗');
+    body = duck;  // 整只鸭子作为 body（混元自带腿，分离式结构在结构上仍可走/低头）
+    statusEl.textContent = '✅ 混元 3D 鸭子就绪（HY3 AI 真 3D 模型，保留 PBR 颜色：黄嘴+黑眼+白身）';
+    console.log('body:', !!body);
   } catch (e) {
     statusEl.textContent = '❌ ' + e.message;
     console.error(e);
@@ -102,20 +107,19 @@ function setMode(m) {
 function animateDuck(dt) {
   if (!duck) return;
   if (mode === 'walk') {
-    // 走路：双脚交替摆动 + 身体上下微浮
-    if (footL) footL.rotation.x = Math.sin(time * 6) * 0.35;
-    if (footR) footR.rotation.x = -Math.sin(time * 6) * 0.35;
-    if (body) body.position.y = Math.abs(Math.sin(time * 6)) * 0.03;
+    // 走路：鸭子整体上下浮动 + 微微前倾摆动（混元鸭子整只作为整体）
+    duck.position.y = Math.abs(Math.sin(time * 6)) * 0.06;
+    duck.rotation.z = Math.sin(time * 6) * 0.05;  // 微侧摆
   } else if (mode === 'eat') {
-    // 低头吃食：身体整体前倾（鸭嘴到地）
-    if (footL) footL.rotation.x = 0;
-    if (footR) footR.rotation.x = 0;
-    if (body) { body.rotation.x = 0.6; body.position.y = 0; }
+    // 低头吃食：鸭子整体前倾
+    duck.position.y = 0;
+    duck.rotation.z = 0;
+    duck.rotation.x = 0.6;
   } else {
     // 待机
-    if (footL) footL.rotation.x = 0;
-    if (footR) footR.rotation.x = 0;
-    if (body) { body.rotation.x = 0; body.position.y = 0; }
+    duck.position.y = 0;
+    duck.rotation.x = 0;
+    duck.rotation.z = 0;
   }
 }
 
