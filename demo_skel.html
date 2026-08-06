@@ -3,9 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
-<title>鸭子走路（程序化顶点动画 — 改 vertices 让腿抬起来）</title>
+<title>鸭子真骨骼动画（HY3D 混元 + 程序化绑骨 v2）</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family:"Microsoft YaHei",sans-serif; background:#1a2332; color:#eee; overflow:hidden; }
@@ -21,8 +19,8 @@
 <body>
 <div id="viewer"></div>
 <div id="panel">
-  <button class="btn" id="btnWalk">🦆 走路（腿抬起来）</button>
-  <button class="btn" id="btnEat">🐛 低头吃食</button>
+  <button class="btn" id="btnWalk">🦆 走路（骨骼）</button>
+  <button class="btn" id="btnEat">🐛 低头吃食（骨骼）</button>
   <button class="btn" id="btnIdle" class="active">🧍 待机</button>
 </div>
 <div id="status">加载中...</div>
@@ -62,23 +60,15 @@ scene.add(ground);
 
 const loader = new GLTFLoader();
 const statusEl = document.getElementById('status');
-let duck = null, body = null, mesh = null;
-let posOri = null, posNow = null;  // 原始 + 当前 vertex positions
-let legMask = null, legTopY = 0;
+let duck = null, mixer = null, actions = {}, skinnedMesh = null, bones = [];
 let mode = 'idle', time = 0;
 
 async function init() {
   try {
-    // 用最稳定的 hy3_duck_body.glb（混元原图，结构简单可靠）
-    const gltf = await loader.loadAsync('hy3_duck_body.glb');
+    // 加载绑骨版 GLB（网格站立姿态 + skin + animations）
+    const gltf = await loader.loadAsync('hy3_duck_skel.glb');
     duck = gltf.scene;
-    // wrapper X 旋转 -π/2 让侧躺变站立（混元生成是侧躺姿态）
-    const wrapper = new THREE.Group();
-    wrapper.rotation.x = -Math.PI / 2;
-    scene.add(wrapper);
-    wrapper.add(duck);
     duck.scale.setScalar(1.2);
-    // 找 mesh，保留 PBR 颜色
     duck.traverse(o => {
       if (o.isMesh) {
         o.castShadow = o.receiveShadow = true;
@@ -86,68 +76,65 @@ async function init() {
           color: 0xffffff,
           map: o.material && (o.material.map || (o.material.pbrMetallicRoughness && o.material.pbrMetallicRoughness.baseColorTexture)) || null,
         });
-        mesh = o;
       }
     });
-  // 缓存原始 vertices（备用——目前改用 duck.rotation/pivot 动画，不改 vertices）
-  posOri = mesh.geometry.attributes.position.array.slice();
-  posNow = mesh.geometry.attributes.position.array;
-    // 找腿区域：底部 25% 顶点（按 Y 分位）
-    const verts = [];
-    for (let i = 0; i < posOri.length; i += 3) verts.push(posOri[i+1]);
-    verts.sort((a, b) => a - b);
-    legTopY = verts[Math.floor(verts.length * 0.25)];
-    legMask = new Uint8Array(verts.length);
-    for (let i = 0; i < verts.length; i++) {
-      legMask[i] = (posOri[i*3+1] < legTopY) ? 1 : 0;
+    scene.add(duck);
+    // 找 SkinnedMesh 和骨骼（直接用 Three.js API 驱动 bones，绕开 glTF animation channel）
+    duck.traverse(o => { if (o.isSkinnedMesh) skinnedMesh = o; });
+    if (skinnedMesh) {
+      bones = skinnedMesh.skeleton.bones;
+      window.__bones = bones; window.__skinned = skinnedMesh; window.__duck = duck;
+      console.log('找到骨骼:', bones.map(b => b.name).join(', '));
+      statusEl.textContent = '✅ 真骨骼就绪（' + bones.map(b=>b.name).join('/') + '）— 走路=腿摆动，低头=前倾';
+    } else {
+      statusEl.textContent = '❌ 未找到 SkinnedMesh';
     }
-    const legCount = legMask.reduce((a, b) => a+b, 0);
-    statusEl.textContent = `✅ 鸭子就绪（腿区域 ${legCount} 顶点可抬腿）— 走路=手动改 vertices 让腿抬起来`;
-    console.log('leg region:', legCount, 'vertices, legTopY:', legTopY.toFixed(2));
   } catch (e) {
     statusEl.textContent = '❌ ' + e.message;
     console.error(e);
   }
 }
-
 function setMode(m) {
   mode = m;
+  time = 0;
   document.querySelectorAll('#panel .btn').forEach(b => b.classList.remove('active'));
   document.getElementById(m === 'walk' ? 'btnWalk' : m === 'eat' ? 'btnEat' : 'btnIdle').classList.add('active');
-}
-
-// 状态：mode 控制 wrapper 的 rotation（eat 前倾）+ position（walk 上下浮动）
-let walkPhase = 0;
-function updateAnimation(dt) {
-  if (!duck) return;
-  // 找 wrapper（duck 的父节点）
-  const wrapper = duck.parent;
-  if (!wrapper) return;
-  if (mode === 'walk') {
-    // 走路：duck 在 wrapper 中上下浮动 + 轻微 Y 旋转（摆动身体）—— 不改 vertices 不爆贴图
-    walkPhase += dt * 4;
-    duck.position.y = Math.abs(Math.sin(walkPhase)) * 0.05;
-    duck.rotation.y = Math.sin(walkPhase) * 0.08;  // 左右摆动
-  } else if (mode === 'eat') {
-    // 低头：duck 整体前倾（用 duck 自己的 rotation）
-    duck.position.y = 0;
-    duck.rotation.y = 0;
-    duck.rotation.x = 0.5;  // X 轴前倾（前面低头）
-  } else {
-    // 待机：恢复
-    duck.position.y = 0;
-    duck.rotation.y = 0;
-    duck.rotation.x = 0;
+  // bones 初始归位（bind pose）
+  if (bones.length) {
+    bones.forEach(b => { b.rotation.set(0, 0, 0); });
   }
 }
-
 let lastT = performance.now();
 function animate() {
   requestAnimationFrame(animate);
   const now = performance.now();
   const dt = Math.min(0.05, (now - lastT) / 1000);
   lastT = now; time += dt;
-  updateAnimation(dt);
+  // 直接驱动骨骼（绕开 glTF animation channel，用 Three.js API）
+  if (bones.length >= 3) {
+    const root = bones[0], legL = bones[1], legR = bones[2];
+    if (mode === 'walk') {
+      // 走路：左/右腿交替左右摆（绕 Y 轴，相机方向明显）
+      legL.rotation.y = Math.sin(time * 4) * 0.8;  // 摆幅加大到 0.8rad 让走路明显
+      legR.rotation.y = -Math.sin(time * 4) * 0.8;
+      root.rotation.x = 0;
+    } else if (mode === 'eat') {
+      // 低头：root 前倾 0.5rad（约 29°），腿保持
+      legL.rotation.x = 0;
+      legR.rotation.x = 0;
+      root.rotation.x = 0.4;  // eat 稍小避免爆炸
+    } else {
+      // 待机
+      legL.rotation.x = 0;
+      legR.rotation.x = 0;
+      root.rotation.x = 0;
+    }
+    // 关键：骨骼 rotation 改变后必须更新 skeleton 的 boneMatrices（否则顶点不变）
+    if (skinnedMesh) {
+      duck.updateMatrixWorld(true);
+      skinnedMesh.skeleton.update();
+    }
+  }
   controls.update();
   renderer.render(scene, camera);
 }
