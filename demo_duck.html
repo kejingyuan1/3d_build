@@ -2,17 +2,14 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>真 3D 鸭子（Kenney CC0 角色）</title>
+<title>混元 3D 鸭子（HY3 真 3D 模型 + 分离式脚）</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family:"Microsoft YaHei",sans-serif; background:#1a2332; color:#eee; overflow:hidden; }
   #viewer { position:absolute; inset:0; }
   #panel { position:absolute; top:12px; left:50%; transform:translateX(-50%); background:rgba(20,28,40,.85);
-    border:1px solid rgba(255,255,255,.15); border-radius:12px; padding:10px 18px; display:flex; gap:12px;
-    align-items:center; z-index:10; box-shadow:0 4px 20px rgba(0,0,0,.4); }
-  .btn { background:#2b3a52; color:#dfe9f5; border:1px solid #3d5068; padding:7px 16px; border-radius:8px;
-    font-size:13px; cursor:pointer; transition:all .15s; }
-  .btn:hover { background:#3a4d6a; }
+    border:1px solid rgba(255,255,255,.15); border-radius:12px; padding:10px 18px; display:flex; gap:12px; align-items:center; z-index:10; }
+  .btn { background:#2b3a52; color:#dfe9f5; border:1px solid #3d5068; padding:7px 16px; border-radius:8px; font-size:13px; cursor:pointer; }
   .btn.active { background:#4a9de0; border-color:#6cb8f0; color:#fff; }
   #status { position:absolute; bottom:14px; left:50%; transform:translateX(-50%); background:rgba(20,28,40,.8);
     border:1px solid rgba(255,255,255,.12); border-radius:10px; padding:8px 16px; font-size:13px; color:#b8c8dc; z-index:10; text-align:center; }
@@ -28,8 +25,7 @@
 <div id="status">加载中...</div>
 
 <script type="importmap">
-{ "imports": { "three": "./vendor/three/build/three.module.js",
-  "three/addons/": "./vendor/three/jsm/" } }
+{ "imports": { "three": "./vendor/three/build/three.module.js", "three/addons/": "./vendor/three/jsm/" } }
 </script>
 <script type="module">
 import * as THREE from 'three';
@@ -40,43 +36,29 @@ const viewer = document.getElementById('viewer');
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB);
 
-// HY3 半写实鸭子图作为背景插画（半透明叠加）
-const bgLoader = new THREE.TextureLoader();
-let hy3BgTex = null;
-bgLoader.load('generated-images/duck_semi_alpha.png', tex => {
-  hy3BgTex = tex;
-  hy3BgTex.colorSpace = THREE.SRGBColorSpace;
-  scene.background = tex;  // 3D 场景背景用 HY3 鸭子图（呈现半写实风视觉）
-});
-
-const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.1, 100);
-camera.position.set(1.5, 1.2, 2.5);
+const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.1, 200);
+camera.position.set(2.5, 1.6, 3.5);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(innerWidth, innerHeight);
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
 renderer.shadowMap.enabled = true;
 viewer.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(0, 0.3, 0);
+controls.target.set(0, 0.5, 0);
 controls.enableDamping = true;
-controls.maxPolarAngle = Math.PI / 2 - 0.02;
 
-// 灯光（半写实柔和）
 scene.add(new THREE.HemisphereLight(0xDFEBFF, 0xFFF0D0, 2.2));
-const sun = new THREE.DirectionalLight(0xFFF8E8, 2.6);
+const sun = new THREE.DirectionalLight(0xFFF8E8, 2.8);
 sun.position.set(5, 8, 4); sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
-sun.shadow.camera.left = -2; sun.shadow.camera.right = 2;
-sun.shadow.camera.top = 2; sun.shadow.camera.bottom = -2;
 scene.add(sun);
 const fill = new THREE.DirectionalLight(0xCFE8FF, 1.0);
 fill.position.set(-4, 3, -2);
 scene.add(fill);
 
 const ground = new THREE.Mesh(
-  new THREE.CircleGeometry(4, 32),
+  new THREE.CircleGeometry(5, 32),
   new THREE.MeshLambertMaterial({ color: 0x8BC34A })
 );
 ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true;
@@ -84,22 +66,15 @@ scene.add(ground);
 
 const loader = new GLTFLoader();
 const statusEl = document.getElementById('status');
-let duck = null, body = null, head = null, beak = null, footL = null, footR = null, wingL = null, wingR = null;
+let duck = null, body = null, footL = null, footR = null;
 let mode = 'idle', time = 0;
-
-// 节点名映射（Kenney 模型：foot-1/foot1，不是 foot_l/foot_r）
-function findNode(root, name) {
-  let found = null;
-  root.traverse(o => { if (o.name === name) found = o; });
-  return found;
-}
 
 async function init() {
   try {
     const gltf = await loader.loadAsync('assets/animals/animal_duck_white.glb');
     duck = gltf.scene;
-    duck.scale.setScalar(3);
-    // Kenney 真 3D 鸭子角色（无 HY3 贴图避免失真）
+    // 混元模型较大（47MB，90万面），适当缩放展示
+    duck.scale.setScalar(1.2);
     duck.traverse(o => {
       if (o.isMesh) {
         o.castShadow = o.receiveShadow = true;
@@ -107,57 +82,40 @@ async function init() {
       }
     });
     scene.add(duck);
-    // 缓存节点引用（用于动画）
-    body = findNode(duck, 'body');
-    head = findNode(duck, 'head');
-    beak = findNode(duck, 'beak');
-    footL = findNode(duck, 'foot-1');
-    footR = findNode(duck, 'foot1');
-    wingL = findNode(duck, 'wing-1');
-    wingR = findNode(duck, 'wing1');
-    window.__duck = duck;
-    window.__camera = camera;
-    window.__controls = controls;
-    statusEl.textContent = '✅ 真 3D 鸭子就绪（Kenney CC0 角色，11 mesh：body/neck/head/beak/2eyes/2wings/tail/2feet）';
+    body = duck.getObjectByName('body');
+    footL = duck.getObjectByName('foot_l');
+    footR = duck.getObjectByName('foot_r');
+    statusEl.textContent = '✅ 混元 3D 鸭子就绪（HY3 AI 生成身体+脚，分离式组装）— 点击按钮看走路/低头';
+    console.log('节点:', body ? 'body✓' : 'body✗', footL ? 'footL✓' : 'footL✗', footR ? 'footR✓' : 'footR✗');
   } catch (e) {
     statusEl.textContent = '❌ ' + e.message;
+    console.error(e);
   }
 }
 
 function setMode(m) {
   mode = m; time = 0;
   document.querySelectorAll('#panel .btn').forEach(b => b.classList.remove('active'));
-  const btn = m === 'walk' ? 'btnWalk' : m === 'eat' ? 'btnEat' : 'btnIdle';
-  document.getElementById(btn).classList.add('active');
+  document.getElementById(m === 'walk' ? 'btnWalk' : m === 'eat' ? 'btnEat' : 'btnIdle').classList.add('active');
 }
 
-// 动画驱动
 function animateDuck(dt) {
   if (!duck) return;
   if (mode === 'walk') {
-    // 走路：body 上下微浮 + 双脚交替摆 + 翅膀拍动
-    if (body) body.position.y = 0.005 + Math.abs(Math.sin(time * 6)) * 0.05;
-    if (footL) footL.rotation.x = Math.sin(time * 6) * 0.3;
-    if (footR) footR.rotation.x = -Math.sin(time * 6) * 0.3;
-    if (wingL) wingL.rotation.x = Math.sin(time * 6) * 0.4;
-    if (wingR) wingR.rotation.x = Math.sin(time * 6) * 0.4;
-    if (head) head.rotation.x = 0;
+    // 走路：双脚交替摆动 + 身体上下微浮
+    if (footL) footL.rotation.x = Math.sin(time * 6) * 0.35;
+    if (footR) footR.rotation.x = -Math.sin(time * 6) * 0.35;
+    if (body) body.position.y = Math.abs(Math.sin(time * 6)) * 0.03;
   } else if (mode === 'eat') {
-    // 低头：head + beak 一起绕脖子底部旋转
-    if (body) body.position.y = 0.005;
+    // 低头吃食：身体整体前倾（鸭嘴到地）
     if (footL) footL.rotation.x = 0;
     if (footR) footR.rotation.x = 0;
-    if (wingL) wingL.rotation.x = 0;
-    if (wingR) wingR.rotation.x = 0;
-    if (head) head.rotation.x = 0.6;  // ~35° 低头
+    if (body) { body.rotation.x = 0.6; body.position.y = 0; }
   } else {
     // 待机
-    if (body) body.position.y = 0.005;
     if (footL) footL.rotation.x = 0;
     if (footR) footR.rotation.x = 0;
-    if (wingL) wingL.rotation.x = 0;
-    if (wingR) wingR.rotation.x = 0;
-    if (head) head.rotation.x = 0;
+    if (body) { body.rotation.x = 0; body.position.y = 0; }
   }
 }
 
@@ -166,8 +124,7 @@ function animate() {
   requestAnimationFrame(animate);
   const now = performance.now();
   const dt = Math.min(0.05, (now - lastT) / 1000);
-  lastT = now;
-  time += dt;
+  lastT = now; time += dt;
   animateDuck(dt);
   controls.update();
   renderer.render(scene, camera);
